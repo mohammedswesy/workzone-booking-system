@@ -19,6 +19,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UserController;
 
 
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/admin', [AdminController::class, 'index'])->name('admin.index');
     Route::resource('/admin/users', UserController::class);
@@ -27,6 +28,11 @@ Route::middleware(['auth'])->group(function () {
 
 Route::middleware(['auth'])->resource('/admin/users', UserController::class);
 
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::resource('bookings', BookingController::class);
+});
 
 
 Route::get('/dashboard', function () {
