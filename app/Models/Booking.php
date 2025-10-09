@@ -9,6 +9,17 @@ class Booking extends Model
     //
       use HasFactory;
 
+    public const STATUS_PENDING   = 'pending';
+    public const STATUS_PAID      = 'paid';
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_PAID,
+        self::STATUS_CANCELLED,
+    ];
+
+
     protected $fillable = [
         'user_id',
         'workspace_id',
@@ -18,14 +29,24 @@ class Booking extends Model
     ];
 
     
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
+    // public function user()
+    // {
+    //     return $this->belongsTo(User::class);
+    // }
 
-    public function workspace()
-    {
-        return $this->belongsTo(Workspace::class);
-    }
+    // public function workspace()
+    // {
+    //     return $this->belongsTo(Workspace::class.'workspace_id');
+    // }
+
+    public function user()
+{
+    return $this->belongsTo(User::class,);
+}
+
+public function workspace()
+{
+    return $this->belongsTo(Workspace::class,);
+}
 
 }

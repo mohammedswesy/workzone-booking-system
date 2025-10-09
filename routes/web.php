@@ -1,65 +1,206 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Owner\OfferController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\WorkspaceController;
-use App\Http\Controllers\BookingController;
-use App\Http\Controllers\OwnerController;
-use App\Http\Controllers\AdminController;
-use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
-Route::get('/', function () {
-    return view('welcome');
+// Models (للإحصائيات في لوحة المالك)
+use App\Models\Workspace;
+use App\Models\Booking;
+use App\Models\User;
+
+// User namespace
+use App\Http\Controllers\User\WorkspaceController as UserWorkspaceController;
+use App\Http\Controllers\User\BookingController   as UserBookingController;
+
+// Owner namespace
+use App\Http\Controllers\Owner\WorkspaceController as OwnerWorkspaceController;
+use App\Http\Controllers\Owner\BookingController   as OwnerBookingController;
+
+// Admin namespace
+use App\Http\Controllers\Admin\UserController      as AdminUserController;
+use App\Http\Controllers\Admin\WorkspaceController as AdminWorkspaceController;
+use App\Http\Controllers\Admin\BookingController   as AdminBookingController;
+use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\ProfileController;
+use Illuminate\Support\Facades\DB;
+
+/*
+|--------------------------------------------------------------------------
+| الصفحة الرئيسية
+|--------------------------------------------------------------------------
+*/
+Route::get('/', fn () => Inertia::render('Home'))->name('home');
+
+/*
+|--------------------------------------------------------------------------
+| مسارات عامة (بدون تسجيل) — عرض المساحات (واجهة المستخدم)
+|--------------------------------------------------------------------------
+*/
+Route::get('/spaces', [UserWorkspaceController::class, 'index'])->name('spaces.index');
+Route::get('/spaces/{workspace}', [UserWorkspaceController::class, 'show'])->name('spaces.show');
+
+/*
+|--------------------------------------------------------------------------
+| الحجز: شاشة إنشاء الحجز لمساحة محددة (يتطلب Auth)
+| الوصول: /booking?workspace_id=123
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth')->group(function () {
+    Route::get('/booking', [UserBookingController::class, 'create'])->name('booking.create');
 });
 
-// موارد Workspaces بدون middleware خاص
-Route::resource('workspaces', WorkspaceController::class);
+/*
+|--------------------------------------------------------------------------
+| /dashboard يوجّه حسب الدور
+|--------------------------------------------------------------------------
+*/
+Route::get('/dashboard', function () {
+    $user = Auth::user();
+    if (! $user) return redirect()->route('login');
 
-// صفحة الحجوزات فقط للمستخدمين المسجلين
+    if (method_exists($user, 'isAdmin') && $user->isAdmin()) {
+        return redirect()->route('admin.dashboard');
+    }
+
+    return match ($user->role ?? 'user') {
+        'admin' => redirect()->route('admin.dashboard'),
+        'owner' => redirect()->route('owner.dashboard'),
+        default => redirect()->route('user.bookings.index'),
+    };
+})->middleware('auth')->name('dashboard');
+
+/*
+|--------------------------------------------------------------------------
+| صفحات البروفايل (Breeze) 
+
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth')->group(function () {
-    Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
-    Route::resource('bookings', BookingController::class);
-
-    // صفحة الملف الشخصي
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::get('/profile',  [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// لوحات التحكم حسب الأدوار مع التحقق من تسجيل الدخول
-Route::middleware(['auth', 'role:admin'])->group(function () {
-    Route::get('/admin/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
-    Route::get('/admin/users', [AdminController::class, 'manageUsers'])->name('admin.users');
-    Route::get('/admin/bookings', [AdminController::class, 'manageBookings'])->name('admin.bookings');
+/*
+|--------------------------------------------------------------------------
+| لوحات الأدمن
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth','role:admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/dashboard', function () {
+            return Inertia::render('Admin/Dashboard', [
+                'stats' => [
+                    'users'      => User::where('role','user')->count(),
+                    'owners'     => User::where('role','owner')->count(),
+                    'workspaces' => Workspace::count(),
+                    'bookings'   => Booking::count(),
+                ],
+            ]);
+        })->name('dashboard');
 
-    // إدارة المستخدمين - موارد كاملة
-    Route::resource('/admin/users', UserController::class);
-});
-
-Route::middleware(['auth', 'role:owner'])->group(function () {
-    Route::get('/owner/dashboard', [OwnerController::class, 'index'])->name('owner.dashboard');
-});
-
-Route::middleware(['auth', 'role:user'])->group(function () {
-    Route::get('/user/dashboard', [UserController::class, 'index'])->name('user.dashboard');
-});
-
-// مناطق خاصة حسب الأدوار مع auth
-Route::middleware(['auth', 'role:owner,admin'])->group(function () {
-    Route::get('/owner-area', function () {
-        return 'Welcome Owner or Admin';
+        Route::resource('users',      AdminUserController::class);
+        Route::resource('workspaces', AdminWorkspaceController::class)
+            ->parameters(['workspaces' => 'workspace']);
+        Route::resource('bookings',   AdminBookingController::class)
+            ->parameters(['bookings' => 'booking']);
+             Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     });
-});
 
-Route::middleware(['auth', 'role:user'])->group(function () {
-    Route::get('/user-area', function () {
-        return 'Welcome User';
+/*
+|--------------------------------------------------------------------------
+| لوحة المالك (Owner)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth','role:owner'])
+    ->prefix('owner')
+    ->name('owner.')
+    ->group(function () {
+        // داشبورد المالك مع إحصائيات
+       Route::get('/dashboard', function () {
+    $owner = request()->user();
+
+    // KPIs
+    $workspacesCount = Workspace::where('owner_id', $owner->id)->count();
+
+    $bookingsCount = Booking::whereHas('workspace', function ($q) use ($owner) {
+        $q->where('owner_id', $owner->id);
+    })->count();
+
+    $pendingCount = Booking::whereHas('workspace', function ($q) use ($owner) {
+        $q->where('owner_id', $owner->id);
+    })->where('status', 'pending')->count();
+
+    // عدد العروض الفعّالة
+    $activeOffersCount = \App\Models\Offer::whereHas('workspace', function ($q) use ($owner) {
+        $q->where('owner_id', $owner->id);
+    })->active()->count();
+
+    // أعلى خصومات على مساحات المالك (Top 5)
+    $topDiscounted = Workspace::query()
+        ->where('owner_id', $owner->id)
+        ->withCount([
+            'activeOffers as max_discount' => function ($q) {
+                $q->select(DB::raw('MAX(discount_percent)'));
+            }
+        ])
+        ->orderByDesc('max_discount')
+        ->take(5)
+        ->get(['id','name','price_per_hour','image_url','location']);
+
+    return Inertia::render('Owner/Dashboard', [
+        'stats' => [
+            'workspaces_count'   => $workspacesCount,
+            'bookings_count'     => $bookingsCount,
+            'pending_count'      => $pendingCount,
+            'active_offers_count'=> $activeOffersCount,
+        ],
+        'topDiscounted' => $topDiscounted,
+    ]);
+})->name('dashboard');
+
+        // مساحات المالك
+        Route::resource('workspaces', OwnerWorkspaceController::class)
+            ->parameters(['workspaces' => 'workspace']);
+
+        // حجوزات مرتبطة بمساحات المالك (بدون create/store)
+        Route::resource('bookings', OwnerBookingController::class)
+            ->parameters(['bookings' => 'booking'])
+            ->only(['index','show','edit','update','destroy']);
+
+        Route::resource('offers', OfferController::class)
+    ->except(['show'])
+    ->parameters(['offers' => 'offer']);
     });
-});
 
-// صفحة لوحة التحكم العادية للمستخدمين مع التحقق من البريد
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+/*
+|--------------------------------------------------------------------------
+| مستخدم عادي (User)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth','role:user'])
+    ->prefix('user')
+    ->name('user.')
+    ->group(function () {
+        Route::resource('bookings', UserBookingController::class)
+            ->parameters(['bookings' => 'booking']);
+    });
 
-require __DIR__.'/auth.php';
+/*
+|--------------------------------------------------------------------------
+| Auth scaffolding routes (Breeze)
+|--------------------------------------------------------------------------
+*/
+
+
+// offer owner
+use App\Http\Controllers\Owner\OfferController as OwnerOfferController;
+
+Route::resource('offers', OwnerOfferController::class)->only(['index','create','store','edit','update','destroy']);
+
+require __DIR__ . '/auth.php';

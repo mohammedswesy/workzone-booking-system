@@ -2,32 +2,50 @@
 
 namespace App\Http\Middleware;
 
+
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Illuminate\Support\Facades\Auth;
 
 class RoleMiddleware
+
 {
     /**
-     * Handle an incoming request.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @param \Closure $next
-     * @param mixed ...$roles
-     * @return Response
+     * Usage:
+     *  ->middleware('role:admin')
+     *  ->middleware('role:admin,owner')          // فاصلة
+     *  ->middleware('role:owner','user')         // باراميترات متعددة
      */
-    public function handle(Request $request, Closure $next, ...$roles): Response
+    public function handle(Request $request, Closure $next, ...$args): Response
     {
-        dd('Middleware role is running');
-        if (!Auth::check()) {
-            abort(403, 'Unauthorized action.');
+        $user = $request->user();
+
+        // غير مسجل دخول → رجّعه على صفحة اللوجين (بدل 401)
+        if (! $user) {
+            // غيّر 'login' إذا عندك اسم روت مختلف
+            return redirect()->route('login');
         }
 
-        if (in_array(Auth::user()->role, $roles)) {
+        // لو عندك method isAdmin() نسمح دائمًا
+        if (method_exists($user, 'isAdmin') && $user->isAdmin()) {
             return $next($request);
         }
 
-        abort(403, 'Unauthorized action.');
+        // جمع الأدوار المسموح بها من الباراميترات + تفكيك الفواصل
+        $allowed = collect($args)
+            ->flatMap(fn ($a) => explode(',', (string) $a))
+            ->map(fn ($r) => strtolower(trim($r)))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $role = strtolower((string) $user->role);
+
+        if (! $allowed->contains($role)) {
+            // لا يملك صلاحية
+            abort(403, 'ليس لديك صلاحية للوصول إلى هذه الصفحة.');
+        }
+
+        return $next($request);
     }
 }

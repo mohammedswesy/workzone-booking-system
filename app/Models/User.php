@@ -32,10 +32,8 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
 
-    public function isAdmin(): bool
-    {
-        return $this->role === self::ROLE_ADMIN;
-    }
+public function isAdmin(): bool { return $this->role === 'admin'; }
+
 
     public function isOwner(): bool
     {
@@ -47,8 +45,22 @@ class User extends Authenticatable
         return $this->role === self::ROLE_USER;
     }
 
-    public function bookings()
-    {
-        return $this->hasMany(Booking::class);
-    }
+//     public function bookings()
+//     {
+//         return $this->hasMany(Booking::class);
+//     }
+//     public function spaces() // لو فيه مالك يمتلك مساحات
+// {
+//     return $this->hasMany(\App\Models\Workspace::class, 'owner_id');
+// }
+
+public function bookings()
+{
+    return $this->hasMany(Booking::class );
+}
+
+public function spaces() // لو فيه مالك يمتلك مساحات
+{
+    return $this->hasMany(Workspace::class, 'owner_id');
+}
 }
