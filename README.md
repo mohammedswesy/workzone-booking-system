@@ -1,11 +1,17 @@
-# WorkZone – Coworking Space Booking System (Laravel + Inertia + Vue)
+# WorkZone – Coworking Space Booking System  
+**Laravel • Inertia.js • Vue**
 
-WorkZone is a multi-role coworking space booking platform built with **Laravel**, **Inertia.js**, and **Vue**.
-It supports **Admin**, **Owner**, and **User** dashboards with booking management and SaaS-ready structure.
+WorkZone is a **multi-role coworking space booking platform** built with **Laravel**, **Inertia.js**, and **Vue**.  
+It is designed with a **SaaS-ready architecture** and supports **Admin**, **Owner**, and **User** dashboards.
+
+---
 
 ## ✨ Key Features
-- **Authentication & Roles** (Admin / Owner / User)
-- **Workspaces Management** (create, update, availability, pricing)
+- **Authentication & Role-Based Access Control**
+  - Admin / Owner / User
+- **Workspaces Management**
+  - create & update workspaces
+  - availability & pricing
 - **Booking System**
   - booking requests
   - booking status (pending / approved / rejected / cancelled)
@@ -13,28 +19,48 @@ It supports **Admin**, **Owner**, and **User** dashboards with booking managemen
 - **Owner Dashboard**
   - manage workspaces
   - manage bookings
-  - insights (basic)
+  - basic insights
 - **Admin Dashboard**
-  - manage users / owners
+  - manage users & owners
   - manage workspaces
-  - moderation & system settings (basic)
-- **Responsive UI** (Tailwind + Vue)
+  - system moderation
+- **Responsive UI**
+  - TailwindCSS + Vue
+
+---
+
+## 🖼️ Screenshots
+
+### Admin Dashboard
+![Admin Dashboard](docs/screenshots/admin-dashboard.png)
+
+### Owner Dashboard
+![Owner Dashboard](docs/screenshots/owner-dashboard.png)
+
+### Bookings Management
+![Bookings](docs/screenshots/booking-list.png)
+
+---
 
 ## 🧱 Tech Stack
 - **Backend:** Laravel (PHP)
 - **Frontend:** Inertia.js + Vue
 - **Styling:** TailwindCSS
 - **Database:** MySQL
-- **Build:** Vite
+- **Build Tool:** Vite
+
+---
 
 ## 🗂️ Project Structure (High Level)
-- `app/` Laravel application logic
-- `routes/` web routes
-- `resources/js/` Vue + Inertia pages/components
-- `database/` migrations + seeders
+- `app/` — application logic
+- `routes/` — web routes
+- `resources/js/` — Vue & Inertia pages/components
+- `database/` — migrations & seeders
+
+---
 
 ## 🚀 Getting Started (Local Setup)
-> Requirements: PHP, Composer, Node.js, MySQL
+**Requirements:** PHP, Composer, Node.js, MySQL
 
 ```bash
 git clone https://github.com/mohammedswesy/workzone-booking-system.git
@@ -44,7 +70,7 @@ composer install
 cp .env.example .env
 php artisan key:generate
 
-# configure your DB in .env then:
+# configure your database in .env
 php artisan migrate --seed
 
 npm install
