@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\Role;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -10,16 +12,10 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    // تعريف ثوابت الأدوار
-    public const ROLE_ADMIN = 'admin';
-    public const ROLE_OWNER = 'owner';
-    public const ROLE_USER = 'user';
-
     protected $fillable = [
         'name',
         'email',
         'password',
-        'role',  // تأكد إنه موجود في جدول المستخدمين
     ];
 
     protected $hidden = [
@@ -27,40 +23,37 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'role' => Role::class,
+        ];
+    }
 
-public function isAdmin(): bool { return $this->role === 'admin'; }
-
+    public function isAdmin(): bool
+    {
+        return $this->role === Role::Admin;
+    }
 
     public function isOwner(): bool
     {
-        return $this->role === self::ROLE_OWNER;
+        return $this->role === Role::Owner;
     }
 
     public function isUser(): bool
     {
-        return $this->role === self::ROLE_USER;
+        return $this->role === Role::User;
     }
 
-//     public function bookings()
-//     {
-//         return $this->hasMany(Booking::class);
-//     }
-//     public function spaces() // لو فيه مالك يمتلك مساحات
-// {
-//     return $this->hasMany(\App\Models\Workspace::class, 'owner_id');
-// }
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
 
-public function bookings()
-{
-    return $this->hasMany(Booking::class );
-}
-
-public function spaces() // لو فيه مالك يمتلك مساحات
-{
-    return $this->hasMany(Workspace::class, 'owner_id');
-}
+    public function spaces(): HasMany
+    {
+        return $this->hasMany(Workspace::class, 'owner_id');
+    }
 }

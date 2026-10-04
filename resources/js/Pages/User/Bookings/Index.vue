@@ -13,7 +13,7 @@ const props = defineProps({
   <AppLayout title="My Bookings">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-semibold">My Bookings</h2>
-      <Link :href="route('booking.create')" class="bg-indigo-600 text-white px-3 py-1.5 rounded">
+      <Link :href="route('user.bookings.create')" class="bg-indigo-600 text-white px-3 py-1.5 rounded">
         New Booking
       </Link>
     </div>

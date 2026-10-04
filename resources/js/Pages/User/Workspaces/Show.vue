@@ -9,7 +9,7 @@ const props = defineProps({
 })
 
 function goToBooking() {
-  window.location.href = route('booking.create', { workspace_id: props.workspace.id })
+  window.location.href = route('user.bookings.create', { workspace_id: props.workspace.id })
 }
 </script>
 

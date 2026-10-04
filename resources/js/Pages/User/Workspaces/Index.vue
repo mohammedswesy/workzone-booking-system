@@ -75,7 +75,7 @@ const props = defineProps({
           </Link>
 
           <Link
-            :href="route('booking.create', { workspace_id: s.id })"
+            :href="route('user.bookings.create', { workspace_id: s.id })"
             class="inline-block bg-indigo-600 text-white px-3 py-1.5 rounded text-sm"
           >
             Book now

@@ -13,7 +13,7 @@ defineProps({ space: Object })
     </div>
     <div class="text-right">
       <div class="font-semibold">${{ space.price_per_hour }}/h</div>
-      <Link :href="`/booking/${space.id}`" class="mt-2 inline-block bg-blue-600 text-white px-4 py-2 rounded-md">
+      <Link :href="route('user.bookings.create', { workspace_id: space.id })" class="mt-2 inline-block bg-blue-600 text-white px-4 py-2 rounded-md">
         Book Now
       </Link>
     </div>

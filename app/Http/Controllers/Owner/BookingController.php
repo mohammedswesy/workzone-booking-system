@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Owner;
 
+use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -17,9 +17,9 @@ class BookingController extends Controller
      */
     public function index(Request $request)
     {
-        $owner   = $request->user();
-        $status  = (string) $request->input('status', '');
-        $search  = (string) $request->input('search', '');
+        $owner = $request->user();
+        $status = (string) $request->input('status', '');
+        $search = (string) $request->input('search', '');
         $perPage = (int) $request->input('per_page', 12);
 
         $this->authorize('viewAny', Booking::class);
@@ -35,8 +35,8 @@ class BookingController extends Controller
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($x) use ($search) {
                     $x->whereHas('workspace', fn ($w) => $w->where('name', 'like', "%{$search}%"))
-                      ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")
-                                                       ->orWhere('email', 'like', "%{$search}%"));
+                        ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%"));
                 });
             })
             ->latest();
@@ -45,9 +45,9 @@ class BookingController extends Controller
 
         return Inertia::render('Owner/Bookings/Index', [
             'bookings' => $bookings,
-            'filters'  => [
-                'status'   => $status,
-                'search'   => $search,
+            'filters' => [
+                'status' => $status,
+                'search' => $search,
                 'per_page' => $perPage,
             ],
         ]);
@@ -86,21 +86,19 @@ class BookingController extends Controller
 
         return Inertia::render('Owner/Bookings/Edit', [
             'booking' => $booking,
-            'statuses' => Booking::STATUSES, // ['pending','paid','cancelled']
+            'statuses' => BookingStatus::values(),
         ]);
     }
 
     /**
-     * تحديث حالة الحجز (paid / cancelled … الخ).
-     * يقبل: status ضمن Booking::STATUSES
-     * route: owner.bookings.update (PUT/PATCH)
+     * تحديث حالة الحجز (status فقط — لا hours/price من المالك).
      */
     public function update(Request $request, Booking $booking)
     {
         $this->authorize('update', $booking);
 
         $data = $request->validate([
-            'status' => ['required', Rule::in(Booking::STATUSES)],
+            'status' => ['required', Rule::enum(BookingStatus::class)],
         ]);
 
         $booking->update(['status' => $data['status']]);

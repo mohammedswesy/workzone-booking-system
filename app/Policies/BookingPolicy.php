@@ -2,41 +2,59 @@
 
 namespace App\Policies;
 
-use App\Models\User;
+use App\Enums\Role;
 use App\Models\Booking;
+use App\Models\User;
 
 class BookingPolicy
 {
-    // يشوف حجوزاته أو حجوزات مساحاته (إن كان owner) أو الكل إن كان admin
     public function viewAny(User $user): bool
     {
-        return in_array($user->role, ['user','owner','admin']);
+        return in_array($user->role, [Role::User, Role::Owner, Role::Admin], true);
     }
 
     public function view(User $user, Booking $booking): bool
     {
-        if ($user->role === 'admin') return true;
-        if ($booking->user_id === $user->id) return true; // صاحب الحجز
-        // صاحب المساحة المالكة للحجز
-        return optional($booking->workspace)->owner_id === $user->id;
+        if ($user->role === Role::Admin) {
+            return true;
+        }
+
+        if ($booking->user_id === $user->id) {
+            return true;
+        }
+
+        return $booking->workspace?->owner_id === $user->id;
     }
 
     public function create(User $user): bool
     {
-        return in_array($user->role, ['user','owner','admin']);
+        return $user->role === Role::User;
     }
 
     public function update(User $user, Booking $booking): bool
     {
-        if ($user->role === 'admin') return true;
-        if ($booking->user_id === $user->id) return true;
-        return optional($booking->workspace)->owner_id === $user->id;
+        if ($user->role === Role::Admin) {
+            return true;
+        }
+
+        if ($booking->user_id === $user->id) {
+            return true;
+        }
+
+        // Owners may update bookings on their workspaces (status only enforced in controller / Phase 2).
+        return $booking->workspace?->owner_id === $user->id;
     }
 
     public function delete(User $user, Booking $booking): bool
     {
-        if ($user->role === 'admin') return true;
-        if ($booking->user_id === $user->id) return true;
-        return optional($booking->workspace)->owner_id === $user->id;
+        if ($user->role === Role::Admin) {
+            return true;
+        }
+
+        if ($booking->user_id === $user->id) {
+            return true;
+        }
+
+        return $booking->workspace?->owner_id === $user->id;
     }
 }
