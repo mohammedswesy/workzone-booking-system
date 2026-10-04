@@ -2,7 +2,6 @@
 
 namespace App\Filters;
 
-use App\Enums\WorkspaceStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -66,7 +65,7 @@ class WorkspaceFilter
             ->when(
                 $this->request->filled('status'),
                 fn (Builder $q) => $q->where('status', $this->request->input('status')),
-                fn (Builder $q) => $q->where('status', WorkspaceStatus::Published),
+                fn (Builder $q) => $q->published(),
             );
     }
 

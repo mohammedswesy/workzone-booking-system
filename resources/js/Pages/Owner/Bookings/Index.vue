@@ -1,11 +1,12 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/Ui/PageHeader.vue';
 import Pagination from '@/Components/Ui/Pagination.vue';
 import EmptyState from '@/Components/Ui/EmptyState.vue';
+import LoadingState from '@/Components/Ui/LoadingState.vue';
 import Button from '@/Components/Ui/Button.vue';
 import Input from '@/Components/Ui/Input.vue';
 import Badge from '@/Components/Ui/Badge.vue';
@@ -25,6 +26,24 @@ const props = defineProps({
 
 const { t, locale } = useI18n();
 const cancelTarget = ref(null);
+const filterLoading = ref(false);
+
+onMounted(() => {
+    const onStart = () => {
+        filterLoading.value = true;
+    };
+    const onStop = () => {
+        filterLoading.value = false;
+    };
+    router.on('start', onStart);
+    router.on('finish', onStop);
+    router.on('error', onStop);
+    onUnmounted(() => {
+        router.off('start', onStart);
+        router.off('finish', onStop);
+        router.off('error', onStop);
+    });
+});
 
 const form = reactive({
     status: props.filters.status || '',
@@ -151,8 +170,10 @@ const tabs = [
             </button>
         </div>
 
+        <LoadingState v-if="filterLoading" />
+
         <EmptyState
-            v-if="!hasData"
+            v-else-if="!hasData"
             :title="t('owner.noBookings')"
             :description="t('common.emptyHint')"
         />

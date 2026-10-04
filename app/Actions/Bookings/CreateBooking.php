@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Models\Booking;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Bookings\SeatAvailability;
 use App\Services\Pricing\BookingPricingService;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -17,14 +18,20 @@ class CreateBooking
 {
     public function __construct(
         private readonly BookingPricingService $pricing,
+        private readonly SeatAvailability $seats,
     ) {}
 
-    public function handle(User $user, Workspace $workspace, CarbonInterface $startAt, CarbonInterface $endAt): Booking
-    {
+    public function handle(
+        User $user,
+        Workspace $workspace,
+        CarbonInterface $startAt,
+        CarbonInterface $endAt,
+        ?int $requestedSeats = 1,
+    ): Booking {
         $start = Carbon::parse($startAt)->seconds(0);
         $end = Carbon::parse($endAt)->seconds(0);
 
-        return DB::transaction(function () use ($user, $workspace, $start, $end) {
+        return DB::transaction(function () use ($user, $workspace, $start, $end, $requestedSeats) {
             /** @var Workspace $locked */
             $locked = Workspace::query()
                 ->whereKey($workspace->id)
@@ -32,9 +39,11 @@ class CreateBooking
                 ->firstOrFail();
 
             $this->assertWithinOpeningHours($locked, $start, $end);
-            $this->assertNoOverlap($locked, $start, $end);
 
-            $quote = $this->pricing->quote($locked, $start, $end);
+            $seats = $this->seats->resolveSeats($locked, $requestedSeats);
+            $this->seats->assertCanBook($locked, $start, $end, $seats);
+
+            $quote = $this->pricing->quote($locked, $start, $end, seats: $seats);
             $minutes = $start->diffInMinutes($end);
 
             return Booking::create([
@@ -43,6 +52,7 @@ class CreateBooking
                 'start_at' => $start,
                 'end_at' => $end,
                 'hours' => max(1, (int) ceil($minutes / 60)),
+                'seats' => $seats,
                 'total_price' => $quote->finalAmount,
                 'status' => BookingStatus::Pending,
                 'payment_status' => PaymentStatus::Unpaid,
@@ -64,23 +74,6 @@ class CreateBooking
         if ($start->lt($open) || $end->gt($close)) {
             throw ValidationException::withMessages([
                 'start_at' => 'Booking must be within workspace opening hours ('.$open->format('H:i').'–'.$close->format('H:i').').',
-            ]);
-        }
-    }
-
-    private function assertNoOverlap(Workspace $workspace, Carbon $start, Carbon $end): void
-    {
-        $overlap = Booking::query()
-            ->where('workspace_id', $workspace->id)
-            ->whereIn('status', BookingStatus::blocking())
-            ->where('start_at', '<', $end)
-            ->where('end_at', '>', $start)
-            ->lockForUpdate()
-            ->exists();
-
-        if ($overlap) {
-            throw ValidationException::withMessages([
-                'start_at' => 'This workspace is already booked for the selected time range.',
             ]);
         }
     }

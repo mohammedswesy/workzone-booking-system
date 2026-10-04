@@ -69,11 +69,11 @@ const shellTone = computed(() => {
 </script>
 
 <template>
-    <div class="min-h-screen bg-wz-bg text-wz-fg">
+    <div class="min-h-screen overflow-x-hidden bg-wz-bg text-wz-fg">
         <Toast />
         <div class="pointer-events-none fixed inset-0 bg-gradient-to-b to-transparent" :class="shellTone" />
 
-        <div class="relative mx-auto flex min-h-screen max-w-[1400px]">
+        <div class="relative mx-auto flex min-h-screen min-w-0 max-w-[1400px]">
             <!-- Desktop sidebar -->
             <aside
                 v-if="variant !== 'guest'"
@@ -124,9 +124,12 @@ const shellTone = computed(() => {
                                 variant="secondary"
                                 size="sm"
                                 type="button"
+                                :aria-label="t('common.menu')"
+                                :aria-expanded="mobileOpen"
+                                aria-controls="mobile-nav"
                                 @click="mobileOpen = !mobileOpen"
                             >
-                                Menu
+                                {{ t('common.menu') }}
                             </Button>
                             <div>
                                 <p class="font-display text-sm font-semibold text-wz-brand md:hidden">
@@ -147,6 +150,7 @@ const shellTone = computed(() => {
 
                     <nav
                         v-if="mobileOpen && variant !== 'guest'"
+                        id="mobile-nav"
                         class="mt-3 grid gap-1 rounded-xl border border-wz-border bg-wz-elevated p-2 md:hidden"
                     >
                         <Link
@@ -161,7 +165,7 @@ const shellTone = computed(() => {
                     </nav>
                 </header>
 
-                <main class="flex-1 px-4 py-6 sm:px-6">
+                <main class="min-w-0 flex-1 overflow-x-hidden px-4 py-6 sm:px-6">
                     <slot />
                 </main>
 

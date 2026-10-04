@@ -93,7 +93,13 @@ function book() {
 
             <aside class="wz-surface sticky top-24 h-fit space-y-4 p-5">
                 <div>
-                    <div class="text-sm text-wz-fg-muted">{{ t('spaces.perHour') }}</div>
+                    <div class="text-sm text-wz-fg-muted">
+                        {{
+                            workspace.booking_mode === 'seat'
+                                ? t('spaces.priceUnitSeat')
+                                : t('spaces.priceUnitWhole')
+                        }}
+                    </div>
                     <template v-if="(workspace.active_discount_percent ?? 0) > 0">
                         <div class="text-sm text-wz-fg-muted line-through">
                             ${{ Number(workspace.price_per_hour).toFixed(2) }}

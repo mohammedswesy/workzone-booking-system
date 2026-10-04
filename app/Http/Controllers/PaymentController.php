@@ -13,7 +13,9 @@ use App\Services\Payments\ManualPaymentGateway;
 use App\Services\Payments\PaymentGatewayManager;
 use App\Support\PaymentsConfig;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PaymentController extends Controller
 {
@@ -93,6 +95,32 @@ class PaymentController extends Controller
         return redirect()
             ->route('user.bookings.index')
             ->with('error', 'PayPal payment was cancelled.');
+    }
+
+    public function showProof(Request $request, Payment $payment): StreamedResponse
+    {
+        $user = $request->user();
+        abort_unless($user, 403);
+
+        $payment->loadMissing('booking.workspace');
+        $booking = $payment->booking;
+        abort_unless($booking, 404);
+
+        $allowed = $user->isAdmin()
+            || $booking->user_id === $user->id
+            || $booking->workspace?->owner_id === $user->id;
+
+        abort_unless($allowed, 403);
+        abort_unless(filled($payment->proof_path), 404);
+
+        $path = $payment->proof_path;
+        $disk = Storage::disk('local')->exists($path)
+            ? 'local'
+            : (Storage::disk('public')->exists($path) ? 'public' : null);
+
+        abort_unless($disk !== null, 404);
+
+        return Storage::disk($disk)->response($path);
     }
 
     public function confirmManual(Request $request, Payment $payment)

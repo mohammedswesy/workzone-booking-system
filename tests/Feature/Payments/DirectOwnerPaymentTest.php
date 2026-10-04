@@ -67,7 +67,7 @@ it('shows payment instructions only to the booking user', function () {
 });
 
 it('forbids owner A from confirming payment for owner B booking', function () {
-    Storage::fake('public');
+    Storage::fake('local');
 
     $ownerA = User::factory()->owner()->create();
     $ownerB = User::factory()->owner()->create();
@@ -98,7 +98,7 @@ it('forbids owner A from confirming payment for owner B booking', function () {
 });
 
 it('exposes rejection reason to the booking user after owner rejects proof', function () {
-    Storage::fake('public');
+    Storage::fake('local');
 
     $owner = User::factory()->owner()->create();
     $workspace = Workspace::factory()->create(['owner_id' => $owner->id]);

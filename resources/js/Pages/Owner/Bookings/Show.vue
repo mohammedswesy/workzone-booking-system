@@ -52,12 +52,6 @@ function formatDate(value) {
     }
 }
 
-function proofUrl(path) {
-    if (!path) return null;
-    if (String(path).startsWith('http') || String(path).startsWith('/storage/')) return path;
-    return `/storage/${path}`;
-}
-
 const latestManual = computed(() => {
     const list = props.booking.payments || [];
     return (
@@ -243,16 +237,16 @@ function rejectProof() {
                     </Badge>
 
                     <a
-                        v-if="proofUrl(latestManual.proof_path)"
-                        :href="proofUrl(latestManual.proof_path)"
+                        v-if="latestManual.proof_url"
+                        :href="latestManual.proof_url"
                         target="_blank"
                         rel="noopener"
-                        class="block overflow-hidden rounded-xl border border-wz-border"
+                        class="wz-focus block overflow-hidden rounded-xl border border-wz-border"
                     >
                         <img
-                            v-if="!String(latestManual.proof_path).endsWith('.pdf')"
-                            :src="proofUrl(latestManual.proof_path)"
-                            alt=""
+                            v-if="!String(latestManual.proof_path || '').endsWith('.pdf')"
+                            :src="latestManual.proof_url"
+                            :alt="t('payment.reviewProof')"
                             class="max-h-56 w-full object-contain bg-wz-muted"
                         />
                         <span v-else class="block px-3 py-6 text-center text-sm text-wz-brand">

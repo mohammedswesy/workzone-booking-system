@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -7,6 +7,7 @@ import Pagination from '@/Components/Ui/Pagination.vue';
 import WorkspaceCard from '@/Components/Ui/WorkspaceCard.vue';
 import PageHeader from '@/Components/Ui/PageHeader.vue';
 import EmptyState from '@/Components/Ui/EmptyState.vue';
+import LoadingState from '@/Components/Ui/LoadingState.vue';
 import Button from '@/Components/Ui/Button.vue';
 import Input from '@/Components/Ui/Input.vue';
 
@@ -19,6 +20,24 @@ const props = defineProps({
 
 const { t } = useI18n();
 const drawerOpen = ref(false);
+const filterLoading = ref(false);
+
+onMounted(() => {
+    const onStart = () => {
+        filterLoading.value = true;
+    };
+    const onStop = () => {
+        filterLoading.value = false;
+    };
+    router.on('start', onStart);
+    router.on('finish', onStop);
+    router.on('error', onStop);
+    onUnmounted(() => {
+        router.off('start', onStart);
+        router.off('finish', onStop);
+        router.off('error', onStop);
+    });
+});
 
 const form = reactive({
     search: props.filters?.search || '',
@@ -124,9 +143,10 @@ function toggleAmenity(id) {
                 </form>
             </aside>
 
-            <div>
+            <div class="min-w-0">
+                <LoadingState v-if="filterLoading" />
                 <EmptyState
-                    v-if="!items.length"
+                    v-else-if="!items.length"
                     :title="t('spaces.empty')"
                     :description="t('spaces.emptyHint')"
                 >

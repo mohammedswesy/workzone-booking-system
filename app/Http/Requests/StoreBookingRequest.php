@@ -18,6 +18,7 @@ class StoreBookingRequest extends FormRequest
             'workspace_id' => ['required', 'integer', 'exists:workspaces,id'],
             'start_at' => ['required', 'date', 'after:now'],
             'end_at' => ['required', 'date', 'after:start_at'],
+            'seats' => ['nullable', 'integer', 'min:1'],
         ];
     }
 }

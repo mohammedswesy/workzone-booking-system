@@ -182,10 +182,14 @@ function confirmCancel() {
                         <div class="text-sm text-wz-fg-muted">{{ t('bookings.hours') }}</div>
                         <div class="mt-1 font-medium text-wz-fg">{{ booking.hours }}</div>
                     </div>
+                    <div>
+                        <div class="text-sm text-wz-fg-muted">{{ t('bookings.seats') }}</div>
+                        <div class="mt-1 font-medium text-wz-fg">{{ booking.seats ?? 1 }}</div>
+                    </div>
                 </div>
 
                 <div
-                    v-if="canPay || waitingReview"
+                    v-if="(canPay || waitingReview) && booking.workspace?.payment_details_ready"
                     class="rounded-xl border border-wz-border bg-wz-muted/50 p-4"
                 >
                     <h2 class="font-display text-base font-semibold text-wz-fg">
@@ -203,7 +207,17 @@ function confirmCancel() {
                     </div>
                     <pre
                         class="mt-3 whitespace-pre-wrap rounded-xl border border-wz-border bg-wz-elevated px-3 py-3 font-sans text-sm text-wz-fg"
-                    >{{ booking.workspace?.payment_instructions || '—' }}</pre>
+                    >{{ booking.workspace?.payment_instructions }}</pre>
+                </div>
+                <div
+                    v-else-if="canPay || waitingReview"
+                    class="rounded-xl border border-wz-warning/40 bg-wz-accent-soft p-4"
+                    role="status"
+                >
+                    <h2 class="font-display text-base font-semibold text-wz-fg">
+                        {{ t('payment.detailsPendingTitle') }}
+                    </h2>
+                    <p class="mt-1 text-sm text-wz-fg-muted">{{ t('payment.detailsPendingHint') }}</p>
                 </div>
             </section>
 
@@ -238,7 +252,11 @@ function confirmCancel() {
                     {{ t('payment.paid') }}
                 </p>
 
-                <form v-else-if="canPay" class="space-y-3" @submit.prevent="submitManual">
+                <form
+                    v-else-if="canPay && booking.workspace?.payment_details_ready"
+                    class="space-y-3"
+                    @submit.prevent="submitManual"
+                >
                     <div class="grid gap-2">
                         <span class="text-sm font-medium text-wz-fg">{{ t('payment.method') }}</span>
                         <label

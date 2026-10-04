@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Owner;
 
+use App\Enums\BookingMode;
 use App\Enums\WorkspaceStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreWorkspaceRequest;
@@ -59,9 +60,10 @@ class WorkspaceController extends Controller
 
     public function store(StoreWorkspaceRequest $request)
     {
-        $data = collect($request->validated())->except(['image', 'images', 'amenities'])->all();
+        $data = collect($request->validated())->except(['image', 'images', 'amenities', 'owner_id'])->all();
         $data['owner_id'] = $request->user()->id;
         $data['status'] = $data['status'] ?? WorkspaceStatus::Published->value;
+        $data['booking_mode'] = $data['booking_mode'] ?? BookingMode::Seat->value;
 
         $workspace = Workspace::create($data);
 
@@ -77,7 +79,7 @@ class WorkspaceController extends Controller
             $this->gallery->add($workspace, $file, primary: ! $request->hasFile('image') && $index === 0);
         }
 
-        return redirect()->route('owner.workspaces.index')->with('success', 'Workspace created ✅');
+        return redirect()->route('owner.workspaces.index')->with('success', 'Workspace created.');
     }
 
     public function edit(Workspace $workspace)
@@ -90,6 +92,8 @@ class WorkspaceController extends Controller
 
         return Inertia::render('Owner/Workspaces/Edit', [
             'workspace' => $workspace,
+            'needsPaymentSetup' => $workspace->hasPlaceholderPaymentInstructions(),
+            'bookingModeLocked' => $workspace->hasActiveFutureBookings(),
             'locations' => Location::query()->orderBy('name')->get(['id', 'name', 'city']),
             'amenities' => Amenity::query()->orderBy('name')->get(['id', 'name', 'slug']),
         ]);
@@ -97,7 +101,7 @@ class WorkspaceController extends Controller
 
     public function update(UpdateWorkspaceRequest $request, Workspace $workspace)
     {
-        $data = collect($request->validated())->except(['image', 'images', 'amenities'])->all();
+        $data = collect($request->validated())->except(['image', 'images', 'amenities', 'owner_id'])->all();
         $workspace->update($data);
 
         if ($request->has('amenities')) {
@@ -112,18 +116,24 @@ class WorkspaceController extends Controller
             $this->gallery->add($workspace, $file);
         }
 
-        return redirect()->route('owner.workspaces.index')->with('success', 'Workspace updated ✅');
+        return redirect()->route('owner.workspaces.index')->with('success', 'Workspace updated.');
     }
 
     public function destroy(Workspace $workspace)
     {
+        if ($workspace->bookings()->exists()) {
+            $workspace->update(['status' => WorkspaceStatus::Archived]);
+
+            return back()->with('success', 'Workspace archived because it has bookings.');
+        }
+
         foreach ($workspace->images as $image) {
             $this->gallery->delete($image);
         }
 
         $workspace->delete();
 
-        return back()->with('success', 'Workspace deleted 🗑️');
+        return back()->with('success', 'Workspace deleted.');
     }
 
     public function setPrimaryImage(Workspace $workspace, WorkspaceImage $image)

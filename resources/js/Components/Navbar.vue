@@ -19,12 +19,12 @@ function logout() {
         <Link href="/spaces" class="px-3 py-2 rounded-md text-sm hover:bg-slate-100">Spaces</Link>
 
         <template v-if="user">
-          <!-- رابط داشبورد واحد -->
+          <!-- Single dashboard link -->
           <Link href="/dashboard" class="px-3 py-2 rounded-md text-sm hover:bg-slate-100">
             Dashboard
           </Link>
 
-          <!-- يظهر فقط لو الدور User -->
+          <!-- Shown only for user role -->
           <button v-if="user.role === 'user'"
                   @click="$inertia.post(route('become.owner'))"
                   class="px-3 py-2 rounded-md text-sm border">

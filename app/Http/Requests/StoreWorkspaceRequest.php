@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\BookingMode;
+use App\Enums\Role;
 use App\Enums\WorkspaceStatus;
 use App\Http\Requests\Concerns\ValidatesWorkspacePaymentInstructions;
 use App\Models\Workspace;
@@ -17,14 +19,36 @@ class StoreWorkspaceRequest extends FormRequest
         return $this->user()?->can('create', Workspace::class) ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (! $this->user()?->isAdmin()) {
+            $this->merge(['owner_id' => null]);
+        }
+
+        if (! $this->filled('booking_mode')) {
+            $this->merge(['booking_mode' => BookingMode::Seat->value]);
+        }
+    }
+
     public function rules(): array
     {
+        $isAdmin = (bool) $this->user()?->isAdmin();
+
         return array_merge([
+            'owner_id' => [
+                Rule::requiredIf($isAdmin),
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(function ($q) {
+                    $q->where('role', Role::Owner->value)->where('is_active', true);
+                }),
+            ],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],
             'location' => ['required', 'string', 'max:255'],
             'location_id' => ['nullable', 'integer', 'exists:locations,id'],
             'capacity' => ['required', 'integer', 'min:1'],
+            'booking_mode' => ['required', Rule::enum(BookingMode::class)],
             'price_per_hour' => ['required', 'numeric', 'min:0'],
             'opening_time' => ['nullable', 'date_format:H:i'],
             'closing_time' => ['nullable', 'date_format:H:i', 'after:opening_time'],

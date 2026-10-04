@@ -25,6 +25,10 @@ class Payment extends Model
         'metadata',
     ];
 
+    protected $appends = [
+        'proof_url',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -39,5 +43,14 @@ class Payment extends Model
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function getProofUrlAttribute(): ?string
+    {
+        if (! filled($this->proof_path)) {
+            return null;
+        }
+
+        return route('payments.proof.show', $this);
     }
 }

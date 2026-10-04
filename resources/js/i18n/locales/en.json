@@ -34,7 +34,62 @@
     "emptyHint": "When there is data, it will show up here.",
     "role": "Role",
     "actions": "Actions",
-    "close": "Close"
+    "close": "Close",
+    "menu": "Menu"
+  },
+  "errors": {
+    "ctaHome": "Back to home",
+    "ctaLogin": "Log in",
+    "status": {
+      "403": {
+        "title": "Access denied",
+        "message": "You do not have permission to view this page."
+      },
+      "404": {
+        "title": "Page not found",
+        "message": "The page you are looking for does not exist or was moved."
+      },
+      "419": {
+        "title": "Session expired",
+        "message": "Your session timed out. Refresh the page and try again."
+      },
+      "500": {
+        "title": "Server error",
+        "message": "Something went wrong on our side. Please try again later."
+      },
+      "503": {
+        "title": "Service unavailable",
+        "message": "We are temporarily down for maintenance. Please check back soon."
+      },
+      "generic": {
+        "title": "Something went wrong",
+        "message": "An unexpected error occurred. Please try again."
+      }
+    },
+    "suspended": {
+      "title": "Account suspended",
+      "message": "Your account has been suspended and you cannot use WorkZone right now.",
+      "support": "If you believe this is a mistake, contact platform support."
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "informationTitle": "Profile information",
+    "informationHint": "Update your name and email address.",
+    "passwordTitle": "Update password",
+    "passwordHint": "Use a long, random password to keep your account secure.",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "saved": "Saved.",
+    "emailUnverified": "Your email address is unverified.",
+    "resendVerification": "Click here to re-send the verification email.",
+    "verificationSent": "A new verification link has been sent to your email address.",
+    "deleteTitle": "Delete account",
+    "deleteHint": "Once deleted, your account and data are permanently removed. Download anything you need first.",
+    "deleteAccount": "Delete account",
+    "deleteConfirmTitle": "Delete your account?",
+    "deleteConfirmMessage": "Enter your password to confirm permanent deletion.",
+    "deleteConfirmAction": "Delete account"
   },
   "toast": {
     "success": "Done",
@@ -59,7 +114,17 @@
     "login": "Log in",
     "register": "Register",
     "alreadyRegistered": "Already registered?",
-    "noAccount": "Need an account?"
+    "noAccount": "Need an account?",
+    "confirmPasswordTitle": "Confirm password",
+    "confirmPasswordHint": "This is a secure area. Confirm your password before continuing.",
+    "confirm": "Confirm",
+    "verifyEmailTitle": "Verify email",
+    "verifyEmailHint": "Thanks for signing up! Click the link in your email to verify your address. Did not receive it? We can send another.",
+    "verificationLinkSent": "A new verification link has been sent to the email address you provided during registration.",
+    "resendVerificationEmail": "Resend verification email",
+    "logOut": "Log out",
+    "resetPasswordTitle": "Reset password",
+    "resetPassword": "Reset password"
   },
   "spaces": {
     "title": "Workspaces",
@@ -88,6 +153,8 @@
     "pendingBooking": "You have a pending booking",
     "backToSpaces": "Back to spaces",
     "perHour": "per hour",
+    "priceUnitSeat": "Price per seat per hour",
+    "priceUnitWhole": "Price per hour for the whole space",
     "offer": "Active offer"
   },
   "status": {
@@ -128,7 +195,10 @@
     "methodWallet": "Mobile wallet",
     "methodCash": "Cash on arrival",
     "proofOptionalCash": "Proof is optional for cash on arrival.",
-    "markCashPending": "Notify owner (cash)"
+    "markCashPending": "Notify owner (cash)",
+    "detailsPendingTitle": "Payment details not ready yet",
+    "detailsPendingHint": "The owner has not published real payment instructions. Contact them to confirm how to pay — do not use placeholder text as bank details.",
+    "placeholderText": "Contact the owner to confirm the payment method."
   },
   "bookings": {
     "title": "My bookings",
@@ -156,6 +226,13 @@
     "duration": "Duration",
     "estimatedTotal": "Estimated total",
     "confirmCreate": "Confirm booking",
+    "seats": "Seats",
+    "remainingSeats": "{n} seats remaining for this slot",
+    "wholeSpaceNotice": "This booking reserves the whole space ({n} seats).",
+    "priceUnitSeat": "Rate is per seat per hour",
+    "priceUnitWhole": "Rate is for the whole space per hour",
+    "priceUnitSeatShort": "/seat/h",
+    "priceUnitWholeShort": "/space/h",
     "openingHours": "Open {open} – {close}",
     "offerOff": "{n}% off",
     "view": "View",
@@ -172,6 +249,10 @@
   "owner": {
     "dashboardTitle": "Owner dashboard",
     "dashboardSubtitle": "Stats for your spaces, bookings, and offers.",
+    "paymentSetupBannerTitle": "Add real payment instructions",
+    "paymentSetupBannerHint": "Some published spaces still use a placeholder. Guests cannot see bank or wallet details until you replace it.",
+    "paymentSetupBannerCta": "Update payment details",
+    "paymentSetupFormHint": "This space still has a placeholder. Replace it with your real bank, wallet, or cash instructions before guests can pay.",
     "statSpaces": "Spaces",
     "statBookings": "Bookings",
     "statPending": "Pending",
@@ -190,8 +271,16 @@
     "workspacesSubtitle": "Create and manage workspaces, gallery, and amenities.",
     "addWorkspace": "Add space",
     "searchWorkspaces": "Search by name or location…",
-    "capacity": "Capacity",
+    "capacity": "Capacity (total seats)",
+    "bookingMode": "Booking mode",
+    "bookingModeSeat": "By seat",
+    "bookingModeWhole": "Whole space",
+    "bookingModeSeatHint": "Guests book one or more seats. Price is per seat per hour. Overlapping bookings share capacity until it is full.",
+    "bookingModeWholeHint": "Guests book the entire space. Any overlapping booking is rejected. Price is a flat hourly rate for the whole space (not multiplied by seats).",
+    "bookingModeLocked": "Booking mode cannot be changed while there are pending or confirmed bookings that have not ended yet.",
     "pricePerHour": "Price / hour",
+    "pricePerHourSeat": "Price per seat per hour",
+    "pricePerHourWhole": "Price per hour for the whole space",
     "description": "Description",
     "openingTime": "Opening",
     "closingTime": "Closing",
@@ -264,18 +353,44 @@
     "manageBookings": "Manage bookings",
     "viewReports": "Reports",
     "usersTitle": "Users",
-    "usersSubtitle": "All accounts and roles.",
+    "usersSubtitle": "Create owners and manage accounts. Public signup only creates users.",
+    "createUser": "Create account",
+    "createUserHint": "Owners are created only here. A password setup link is emailed, or shown once if mail is not configured.",
     "editUser": "Edit user",
     "name": "Name",
     "email": "Email",
+    "phone": "Phone (optional)",
     "joined": "Joined",
-    "newPassword": "New password (optional)",
-    "confirmPassword": "Confirm password",
+    "active": "Active",
+    "suspended": "Suspended",
+    "suspend": "Suspend",
+    "reactivate": "Reactivate",
+    "suspendTitle": "Suspend this account?",
+    "suspendMessage": "They cannot log in. Owner workspaces are hidden from the public listing. Bookings and payments are kept.",
+    "deleteUserTitle": "Delete this account?",
+    "deleteUserMessage": "Only accounts without bookings or payments can be deleted.",
+    "cannotDeleteSelf": "You cannot change or remove your own admin protections.",
+    "cannotDeleteLastAdmin": "The last admin cannot be removed or demoted.",
+    "cannotDeleteWithHistory": "This account has bookings or payments — suspend instead of deleting.",
+    "resendInvite": "Resend setup link",
+    "inviteSent": "Password setup invitation sent to :email.",
+    "inviteWillEmail": "A password setup link will be emailed to the new account.",
+    "inviteLinkTitle": "One-time setup link",
+    "inviteLinkHint": "Mail is not configured. Copy this link and share it securely with the user. It is shown once.",
+    "copyLink": "Copy link",
+    "copied": "Copied",
+    "filterRole": "Filter by role",
     "roleUser": "User",
     "roleOwner": "Owner",
     "roleAdmin": "Admin",
     "workspacesTitle": "All workspaces",
     "workspacesSubtitle": "Every space on the platform.",
+    "createWorkspace": "Create workspace",
+    "createWorkspaceHint": "Assign an active owner, then fill the same fields owners use.",
+    "selectOwner": "Select an active owner",
+    "archiveWorkspace": "Archive",
+    "archiveWorkspaceConfirm": "This workspace has bookings. Archive it instead of deleting?",
+    "deleteWorkspaceConfirm": "Delete this workspace permanently?",
     "owner": "Owner",
     "searchSpaces": "Search name or location…",
     "bookingsTitle": "All bookings",

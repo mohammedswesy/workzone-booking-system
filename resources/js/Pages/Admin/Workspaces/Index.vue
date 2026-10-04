@@ -38,7 +38,13 @@ function statusLabel(status) {
         <PageHeader
             :title="t('admin.workspacesTitle')"
             :subtitle="t('admin.workspacesSubtitle')"
-        />
+        >
+            <template #actions>
+                <Link :href="route('admin.workspaces.create')">
+                    <Button variant="primary">{{ t('admin.createWorkspace') }}</Button>
+                </Link>
+            </template>
+        </PageHeader>
 
         <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
             <div class="flex-1">
@@ -71,7 +77,12 @@ function statusLabel(status) {
                         {{ s.owner?.name }} · {{ s.location }}
                     </p>
                     <p class="text-sm text-wz-fg">
-                        {{ s.capacity }} · $ {{ Number(s.price_per_hour).toFixed(2) }}/h
+                        {{ s.capacity }} · $ {{ Number(s.price_per_hour).toFixed(2) }}
+                        {{
+                            s.booking_mode === 'seat'
+                                ? t('bookings.priceUnitSeatShort')
+                                : t('bookings.priceUnitWholeShort')
+                        }}
                     </p>
                     <Link :href="route('admin.workspaces.edit', s.id)">
                         <Button size="sm" variant="secondary">{{ t('common.edit') }}</Button>
@@ -101,6 +112,11 @@ function statusLabel(status) {
                             <td class="px-3 py-2 text-wz-fg">{{ s.capacity }}</td>
                             <td class="px-3 py-2 text-wz-fg">
                                 $ {{ Number(s.price_per_hour).toFixed(2) }}
+                                {{
+                                    s.booking_mode === 'seat'
+                                        ? t('bookings.priceUnitSeatShort')
+                                        : t('bookings.priceUnitWholeShort')
+                                }}
                             </td>
                             <td class="px-3 py-2">
                                 <Link :href="route('admin.workspaces.edit', s.id)">

@@ -97,6 +97,17 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
+
+        /*
+         * Admin-created owner/admin invitations (set-password links).
+         * Longer lived than forgotten-password resets; still single-use.
+         */
+        'invitations' => [
+            'provider' => 'users',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60 * 24,
+            'throttle' => 60,
+        ],
     ],
 
     /*

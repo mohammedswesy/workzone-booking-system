@@ -6,6 +6,10 @@
 
         <title inertia>{{ config('app.name', 'WorkZone') }}</title>
 
+        @if (!empty($page['props']['robotsNoIndex']))
+            <meta name="robots" content="noindex, nofollow">
+        @endif
+
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=ibm-plex-sans-arabic:400,500,600,700|plus-jakarta-sans:400,500,600,700&display=swap" rel="stylesheet" />
 

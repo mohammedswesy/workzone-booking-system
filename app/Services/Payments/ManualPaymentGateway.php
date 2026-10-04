@@ -40,7 +40,7 @@ class ManualPaymentGateway implements PaymentGateway
         }
 
         $path = $proof instanceof UploadedFile
-            ? $proof->store('payment-proofs', 'public')
+            ? $proof->store('payment-proofs', 'local')
             : null;
 
         $payment = Payment::create([

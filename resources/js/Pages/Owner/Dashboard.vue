@@ -22,6 +22,7 @@ defineProps({
     topWorkspaces: { type: Array, default: () => [] },
     recentBookings: { type: Array, default: () => [] },
     activeOffers: { type: Array, default: () => [] },
+    needsPaymentSetup: { type: Array, default: () => [] },
 });
 
 const { t, locale } = useI18n();
@@ -67,6 +68,25 @@ function statusTone(status) {
                 </Link>
             </template>
         </PageHeader>
+
+        <div
+            v-if="needsPaymentSetup?.length"
+            class="mb-6 rounded-xl border border-wz-warning/40 bg-wz-accent-soft px-4 py-3 text-sm text-wz-fg"
+            role="status"
+        >
+            <p class="font-semibold text-wz-fg">{{ t('owner.paymentSetupBannerTitle') }}</p>
+            <p class="mt-1 text-wz-fg-muted">{{ t('owner.paymentSetupBannerHint') }}</p>
+            <ul class="mt-2 list-inside list-disc text-wz-fg">
+                <li v-for="space in needsPaymentSetup" :key="space.id">
+                    <Link
+                        :href="route('owner.workspaces.edit', space.id)"
+                        class="wz-focus font-medium text-wz-brand underline-offset-2 hover:underline"
+                    >
+                        {{ space.name }} — {{ t('owner.paymentSetupBannerCta') }}
+                    </Link>
+                </li>
+            </ul>
+        </div>
 
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <StatCard :label="t('owner.statSpaces')" :value="stats?.workspaces_count ?? 0" />

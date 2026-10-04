@@ -56,17 +56,24 @@ function imageOf(space) {
 
             <div class="mt-auto flex items-end justify-between gap-3 pt-2">
                 <div>
+                    <p class="text-xs text-wz-fg-muted">
+                        {{
+                            space.booking_mode === 'seat'
+                                ? t('spaces.priceUnitSeat')
+                                : t('spaces.priceUnitWhole')
+                        }}
+                    </p>
                     <template v-if="(space.active_discount_percent ?? 0) > 0">
                         <div class="text-xs text-wz-fg-muted line-through">
-                            ${{ Number(space.price_per_hour).toFixed(2) }}/h
+                            ${{ Number(space.price_per_hour).toFixed(2) }}
                         </div>
                         <div class="text-lg font-semibold text-wz-brand">
-                            ${{ Number(space.effective_price_per_hour).toFixed(2) }}/h
+                            ${{ Number(space.effective_price_per_hour).toFixed(2) }}
                         </div>
                     </template>
                     <template v-else>
                         <div class="text-lg font-semibold text-wz-fg">
-                            ${{ Number(space.price_per_hour).toFixed(2) }}/h
+                            ${{ Number(space.price_per_hour).toFixed(2) }}
                         </div>
                     </template>
                 </div>

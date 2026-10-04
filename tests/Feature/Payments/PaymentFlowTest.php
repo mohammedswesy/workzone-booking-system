@@ -27,7 +27,7 @@ function pendingBookingFor(User $user, ?Workspace $workspace = null): Booking
 }
 
 it('accepts manual proof upload and confirms payment via owner', function () {
-    Storage::fake('public');
+    Storage::fake('local');
 
     $owner = User::factory()->owner()->create();
     $workspace = Workspace::factory()->create(['owner_id' => $owner->id]);

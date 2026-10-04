@@ -44,6 +44,15 @@ class WorkspaceController extends Controller
     {
         $user = Auth::user();
 
+        $workspace->loadMissing('owner:id,name,is_active');
+
+        abort_unless(
+            $workspace->status === \App\Enums\WorkspaceStatus::Published
+            && $workspace->owner
+            && $workspace->owner->is_active,
+            404
+        );
+
         $workspace->load([
             'activeOffers',
             'place',

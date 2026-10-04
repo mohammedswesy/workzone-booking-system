@@ -12,6 +12,7 @@ final class BookingPriceQuote
         public readonly string $hours,
         public readonly string $pricePerHour,
         public readonly ?int $offerId = null,
+        public readonly int $seats = 1,
     ) {}
 
     /**
@@ -27,6 +28,7 @@ final class BookingPriceQuote
             'hours' => $this->hours,
             'price_per_hour' => $this->pricePerHour,
             'offer_id' => $this->offerId,
+            'seats' => $this->seats,
         ];
     }
 }

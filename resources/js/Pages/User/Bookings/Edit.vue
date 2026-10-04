@@ -58,7 +58,12 @@ function submit() {
                 <template #label>{{ t('bookings.workspace') }}</template>
                 <option value="" disabled>{{ t('bookings.selectWorkspace') }}</option>
                 <option v-for="w in workspaces" :key="w.id" :value="w.id">
-                    {{ w.name }} ({{ w.effective_price_per_hour ?? w.price_per_hour }}/h)
+                    {{ w.name }} (${{ Number(w.effective_price_per_hour ?? w.price_per_hour).toFixed(2) }}
+                    {{
+                        w.booking_mode === 'whole'
+                            ? t('bookings.priceUnitWholeShort')
+                            : t('bookings.priceUnitSeatShort')
+                    }})
                 </option>
             </Select>
 

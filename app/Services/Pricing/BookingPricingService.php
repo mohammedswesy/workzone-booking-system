@@ -2,6 +2,7 @@
 
 namespace App\Services\Pricing;
 
+use App\Enums\BookingMode;
 use App\Models\Offer;
 use App\Models\Workspace;
 use App\Services\Offers\ActiveOfferResolver;
@@ -14,11 +15,18 @@ class BookingPricingService
         private readonly ActiveOfferResolver $offers,
     ) {}
 
-    public function quote(Workspace $workspace, Carbon $startAt, Carbon $endAt, ?Offer $offer = null): BookingPriceQuote
-    {
+    public function quote(
+        Workspace $workspace,
+        Carbon $startAt,
+        Carbon $endAt,
+        ?Offer $offer = null,
+        int $seats = 1,
+    ): BookingPriceQuote {
         if ($endAt->lte($startAt)) {
             throw new InvalidArgumentException('End time must be after start time.');
         }
+
+        $inventorySeats = max(1, $seats);
 
         $seconds = $startAt->diffInSeconds($endAt);
         $hours = bcdiv((string) $seconds, '3600', 4);
@@ -27,8 +35,15 @@ class BookingPricingService
             throw new InvalidArgumentException('Booking duration must be greater than zero.');
         }
 
+        // Whole mode: flat room rate (price × hours). Seats are inventory-only.
+        // Seat mode: price × hours × seats.
+        $billableSeats = $workspace->booking_mode === BookingMode::Whole
+            ? 1
+            : $inventorySeats;
+
         $pricePerHour = $this->money((string) $workspace->price_per_hour);
-        $baseAmount = $this->money(bcmul($pricePerHour, $hours, 4));
+        $seatHours = bcmul($hours, (string) $billableSeats, 4);
+        $baseAmount = $this->money(bcmul($pricePerHour, $seatHours, 4));
 
         $offer ??= $this->offers->for($workspace, $startAt);
         $percent = 0;
@@ -56,6 +71,7 @@ class BookingPricingService
             hours: $this->money($hours, 2),
             pricePerHour: $this->money($pricePerHour),
             offerId: $offerId,
+            seats: $inventorySeats,
         );
     }
 

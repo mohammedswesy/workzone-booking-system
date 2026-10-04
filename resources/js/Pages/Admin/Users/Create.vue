@@ -1,45 +1,87 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue'
-import { useForm, Link } from '@inertiajs/vue3'
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/Ui/PageHeader.vue';
+import Button from '@/Components/Ui/Button.vue';
+import Input from '@/Components/Ui/Input.vue';
+import Select from '@/Components/Ui/Select.vue';
+
+defineProps({
+    mailDeliverable: { type: Boolean, default: false },
+});
+
+const { t } = useI18n();
 
 const form = useForm({
-  name: '',
-  email: '',
-  password: '',
-  password_confirmation: '',
-  role: 'user', // user | owner | admin
-})
+    name: '',
+    email: '',
+    phone: '',
+    role: 'owner',
+});
 
 function submit() {
-  form.post(route('admin.users.store'))
+    form.post(route('admin.users.store'));
 }
 </script>
 
 <template>
-  <AppLayout title="إضافة مستخدم">
-    <div class="max-w-xl mx-auto px-4 py-6">
-      <h1 class="text-xl font-semibold mb-4">إضافة مستخدم</h1>
-      <form @submit.prevent="submit" class="bg-white border rounded p-4 space-y-3">
-        <input v-model="form.name" class="border rounded px-3 py-2 w-full" placeholder="الاسم" />
-        <div class="text-red-600 text-sm" v-if="form.errors.name">{{ form.errors.name }}</div>
+    <AppLayout :title="t('admin.createUser')">
+        <Head :title="t('admin.createUser')" />
 
-        <input v-model="form.email" type="email" class="border rounded px-3 py-2 w-full" placeholder="الإيميل" />
-        <div class="text-red-600 text-sm" v-if="form.errors.email">{{ form.errors.email }}</div>
+        <PageHeader :title="t('admin.createUser')" :subtitle="t('admin.createUserHint')">
+            <template #actions>
+                <Link :href="route('admin.users.index')">
+                    <Button variant="secondary">{{ t('common.back') }}</Button>
+                </Link>
+            </template>
+        </PageHeader>
 
-        <select v-model="form.role" class="border rounded px-3 py-2 w-full">
-          <option value="user">User</option>
-          <option value="owner">Owner</option>
-          <option value="admin">Admin</option>
-        </select>
+        <form class="wz-surface mx-auto max-w-xl space-y-4 p-5" @submit.prevent="submit">
+            <p class="rounded-xl bg-wz-muted px-3 py-2 text-sm text-wz-fg-muted">
+                {{ mailDeliverable ? t('admin.inviteWillEmail') : t('admin.inviteLinkHint') }}
+            </p>
 
-        <input v-model="form.password" type="password" class="border rounded px-3 py-2 w-full" placeholder="كلمة السر" />
-        <input v-model="form.password_confirmation" type="password" class="border rounded px-3 py-2 w-full" placeholder="تأكيد كلمة السر" />
+            <Input id="create-name" v-model="form.name" :error="form.errors.name" :disabled="form.processing">
+                <template #label>{{ t('admin.name') }}</template>
+            </Input>
+            <Input
+                id="create-email"
+                v-model="form.email"
+                type="email"
+                :error="form.errors.email"
+                :disabled="form.processing"
+            >
+                <template #label>{{ t('admin.email') }}</template>
+            </Input>
+            <Input
+                id="create-phone"
+                v-model="form.phone"
+                :error="form.errors.phone"
+                :disabled="form.processing"
+            >
+                <template #label>{{ t('admin.phone') }}</template>
+            </Input>
+            <Select
+                id="create-role"
+                v-model="form.role"
+                :error="form.errors.role"
+                :disabled="form.processing"
+            >
+                <template #label>{{ t('common.role') }}</template>
+                <option value="owner">{{ t('admin.roleOwner') }}</option>
+                <option value="user">{{ t('admin.roleUser') }}</option>
+                <option value="admin">{{ t('admin.roleAdmin') }}</option>
+            </Select>
 
-        <div class="flex items-center gap-3">
-          <button class="bg-gray-900 text-white px-4 py-2 rounded" :disabled="form.processing">حفظ</button>
-          <Link :href="route('admin.users.index')" class="text-slate-600">رجوع</Link>
-        </div>
-      </form>
-    </div>
-  </AppLayout>
+            <div class="flex flex-wrap gap-3">
+                <Button type="submit" variant="primary" :disabled="form.processing">
+                    {{ t('common.save') }}
+                </Button>
+                <Link :href="route('admin.users.index')">
+                    <Button variant="ghost" :disabled="form.processing">{{ t('common.cancel') }}</Button>
+                </Link>
+            </div>
+        </form>
+    </AppLayout>
 </template>

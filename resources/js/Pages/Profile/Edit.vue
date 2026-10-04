@@ -1,9 +1,11 @@
 <script setup>
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DeleteUserForm from './Partials/DeleteUserForm.vue';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm.vue';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm.vue';
 import { Head } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/Ui/PageHeader.vue';
 
 defineProps({
     mustVerifyEmail: {
@@ -13,44 +15,28 @@ defineProps({
         type: String,
     },
 });
+
+const { t } = useI18n();
 </script>
 
 <template>
-    <Head title="Profile" />
+    <AppLayout :title="t('profile.title')">
+        <Head :title="t('profile.title')" />
 
-    <AuthenticatedLayout>
-        <template #header>
-            <h2
-                class="text-xl font-semibold leading-tight text-gray-800"
-            >
-                Profile
-            </h2>
-        </template>
+        <PageHeader :title="t('profile.title')" />
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8"
-                >
-                    <UpdateProfileInformationForm
-                        :must-verify-email="mustVerifyEmail"
-                        :status="status"
-                        class="max-w-xl"
-                    />
-                </div>
+        <div class="mx-auto max-w-xl space-y-6">
+            <section class="wz-surface p-4 sm:p-6">
+                <UpdateProfileInformationForm :must-verify-email="mustVerifyEmail" :status="status" />
+            </section>
 
-                <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8"
-                >
-                    <UpdatePasswordForm class="max-w-xl" />
-                </div>
+            <section class="wz-surface p-4 sm:p-6">
+                <UpdatePasswordForm />
+            </section>
 
-                <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8"
-                >
-                    <DeleteUserForm class="max-w-xl" />
-                </div>
-            </div>
+            <section class="wz-surface p-4 sm:p-6">
+                <DeleteUserForm />
+            </section>
         </div>
-    </AuthenticatedLayout>
+    </AppLayout>
 </template>

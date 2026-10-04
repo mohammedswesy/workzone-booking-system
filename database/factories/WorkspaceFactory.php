@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\BookingMode;
 use App\Enums\WorkspaceStatus;
 use App\Models\Location;
 use App\Models\User;
@@ -26,6 +27,7 @@ class WorkspaceFactory extends Factory
             'location_id' => Location::factory(),
             'description' => $this->faker->paragraph(),
             'capacity' => $this->faker->numberBetween(5, 100),
+            'booking_mode' => BookingMode::Whole,
             'price_per_hour' => $this->faker->numberBetween(10, 100),
             'opening_time' => '08:00:00',
             'closing_time' => '22:00:00',

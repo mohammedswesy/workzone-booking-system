@@ -24,6 +24,7 @@ function makeOwnerWorkspace(array $workspaceAttrs = []): array
     $owner = User::factory()->owner()->create();
     $workspace = Workspace::factory()->create(array_merge([
         'owner_id' => $owner->id,
+        'capacity' => 8,
         'price_per_hour' => '100.00',
         'opening_time' => '08:00:00',
         'closing_time' => '22:00:00',

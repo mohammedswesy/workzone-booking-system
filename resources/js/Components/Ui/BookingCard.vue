@@ -75,6 +75,8 @@ function money(value) {
                 <span class="mx-1 text-wz-border">·</span>
                 {{ booking.hours }} {{ t('bookings.hours').toLowerCase() }}
                 <span class="mx-1 text-wz-border">·</span>
+                {{ booking.seats ?? 1 }} {{ t('bookings.seats').toLowerCase() }}
+                <span class="mx-1 text-wz-border">·</span>
                 <span class="font-medium text-wz-fg">{{ money(booking.total_price) }}</span>
             </p>
         </div>

@@ -49,11 +49,13 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                'invitation' => fn () => $request->session()->get('invitation'),
             ],
             'payments' => [
                 'paypalEnabled' => PaymentsConfig::paypalAvailable(),
                 'manualEnabled' => (bool) config('payments.providers.manual.enabled', true),
             ],
+            'robotsNoIndex' => $request->is('admin') || $request->is('admin/*'),
         ]);
     }
 }

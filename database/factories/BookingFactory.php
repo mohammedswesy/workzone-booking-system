@@ -29,6 +29,7 @@ class BookingFactory extends Factory
             'start_at' => $start,
             'end_at' => $start->copy()->addHours($hours),
             'hours' => $hours,
+            'seats' => 1,
             'total_price' => $workspace->price_per_hour * $hours,
             'status' => BookingStatus::Pending,
             'payment_status' => PaymentStatus::Unpaid,

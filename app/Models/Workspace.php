@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\BookingMode;
+use App\Enums\BookingStatus;
 use App\Enums\WorkspaceStatus;
 use App\Services\Offers\ActiveOfferResolver;
 use App\Services\Pricing\BookingPricingService;
+use App\Support\PaymentInstructionsPlaceholder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +29,7 @@ class Workspace extends Model
         'location_id',
         'description',
         'capacity',
+        'booking_mode',
         'price_per_hour',
         'opening_time',
         'closing_time',
@@ -42,6 +46,7 @@ class Workspace extends Model
     {
         return [
             'capacity' => 'integer',
+            'booking_mode' => BookingMode::class,
             'price_per_hour' => 'decimal:2',
             'status' => WorkspaceStatus::class,
             'featured' => 'boolean',
@@ -52,6 +57,33 @@ class Workspace extends Model
     public function acceptsPaymentMethod(string $method): bool
     {
         return in_array($method, $this->payment_methods ?? [], true);
+    }
+
+    public function hasPlaceholderPaymentInstructions(): bool
+    {
+        return PaymentInstructionsPlaceholder::isPlaceholder($this->payment_instructions);
+    }
+
+    public function hasActiveFutureBookings(): bool
+    {
+        return $this->bookings()
+            ->whereIn('status', BookingStatus::blocking())
+            ->where('end_at', '>', now())
+            ->exists();
+    }
+
+    /**
+     * Instructions safe to show bookers (null when still a placeholder).
+     */
+    public function bookerPaymentInstructions(): ?string
+    {
+        if ($this->hasPlaceholderPaymentInstructions()) {
+            return null;
+        }
+
+        $value = trim((string) $this->payment_instructions);
+
+        return $value !== '' ? $value : null;
     }
 
     protected static function booted(): void
@@ -130,7 +162,9 @@ class Workspace extends Model
 
     public function scopePublished(Builder $query): Builder
     {
-        return $query->where('status', WorkspaceStatus::Published);
+        return $query
+            ->where('status', WorkspaceStatus::Published)
+            ->whereHas('owner', fn (Builder $owner) => $owner->where('is_active', true));
     }
 
     public function scopeFeatured(Builder $query): Builder

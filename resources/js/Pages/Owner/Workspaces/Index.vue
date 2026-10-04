@@ -129,7 +129,12 @@ function statusLabel(status) {
                     <p class="text-sm text-wz-fg">
                         {{ t('owner.capacity') }}: {{ s.capacity }}
                         <span class="mx-1 text-wz-border">·</span>
-                        $ {{ Number(s.price_per_hour).toFixed(2) }}/h
+                        $ {{ Number(s.price_per_hour).toFixed(2) }}
+                        {{
+                            s.booking_mode === 'seat'
+                                ? t('bookings.priceUnitSeatShort')
+                                : t('bookings.priceUnitWholeShort')
+                        }}
                     </p>
                     <div class="mt-auto flex flex-wrap gap-2 pt-2">
                         <Link :href="route('owner.workspaces.edit', s.id)">

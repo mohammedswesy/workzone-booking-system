@@ -34,7 +34,62 @@
     "emptyHint": "عندما تتوفر بيانات ستظهر هنا.",
     "role": "الدور",
     "actions": "إجراءات",
-    "close": "إغلاق"
+    "close": "إغلاق",
+    "menu": "القائمة"
+  },
+  "errors": {
+    "ctaHome": "العودة للرئيسية",
+    "ctaLogin": "تسجيل الدخول",
+    "status": {
+      "403": {
+        "title": "الوصول مرفوض",
+        "message": "ليس لديك صلاحية لعرض هذه الصفحة."
+      },
+      "404": {
+        "title": "الصفحة غير موجودة",
+        "message": "الصفحة التي تبحث عنها غير موجودة أو نُقلت."
+      },
+      "419": {
+        "title": "انتهت الجلسة",
+        "message": "انتهت مهلة جلستك. حدّث الصفحة وحاول مرة أخرى."
+      },
+      "500": {
+        "title": "خطأ في الخادم",
+        "message": "حدث خطأ من جانبنا. يرجى المحاولة لاحقًا."
+      },
+      "503": {
+        "title": "الخدمة غير متاحة",
+        "message": "نحن في صيانة مؤقتة. يرجى العودة قريبًا."
+      },
+      "generic": {
+        "title": "حدث خطأ",
+        "message": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى."
+      }
+    },
+    "suspended": {
+      "title": "الحساب موقوف",
+      "message": "تم إيقاف حسابك ولا يمكنك استخدام WorkZone حاليًا.",
+      "support": "إذا كنت تعتقد أن هذا خطأ، تواصل مع دعم المنصة."
+    }
+  },
+  "profile": {
+    "title": "الملف الشخصي",
+    "informationTitle": "معلومات الملف",
+    "informationHint": "حدّث اسمك وعنوان بريدك الإلكتروني.",
+    "passwordTitle": "تحديث كلمة المرور",
+    "passwordHint": "استخدم كلمة مرور طويلة وعشوائية لحماية حسابك.",
+    "currentPassword": "كلمة المرور الحالية",
+    "newPassword": "كلمة المرور الجديدة",
+    "saved": "تم الحفظ.",
+    "emailUnverified": "بريدك الإلكتروني غير مُفعَّل.",
+    "resendVerification": "اضغط هنا لإعادة إرسال رسالة التفعيل.",
+    "verificationSent": "تم إرسال رابط تفعيل جديد إلى بريدك الإلكتروني.",
+    "deleteTitle": "حذف الحساب",
+    "deleteHint": "بعد الحذف تُزال بيانات حسابك نهائيًا. احفظ ما تحتاجه قبل المتابعة.",
+    "deleteAccount": "حذف الحساب",
+    "deleteConfirmTitle": "حذف حسابك؟",
+    "deleteConfirmMessage": "أدخل كلمة المرور لتأكيد الحذف النهائي.",
+    "deleteConfirmAction": "حذف الحساب"
   },
   "toast": {
     "success": "تم بنجاح",
@@ -59,7 +114,17 @@
     "login": "تسجيل الدخول",
     "register": "إنشاء حساب",
     "alreadyRegistered": "لديك حساب بالفعل؟",
-    "noAccount": "ليس لديك حساب؟"
+    "noAccount": "ليس لديك حساب؟",
+    "confirmPasswordTitle": "تأكيد كلمة المرور",
+    "confirmPasswordHint": "منطقة آمنة. أكّد كلمة المرور للمتابعة.",
+    "confirm": "تأكيد",
+    "verifyEmailTitle": "تفعيل البريد",
+    "verifyEmailHint": "شكرًا للتسجيل! افتح الرابط في بريدك لتفعيل حسابك. لم يصلك؟ يمكننا إرسال رابط آخر.",
+    "verificationLinkSent": "تم إرسال رابط تفعيل جديد إلى البريد الذي سجّلت به.",
+    "resendVerificationEmail": "إعادة إرسال رسالة التفعيل",
+    "logOut": "تسجيل الخروج",
+    "resetPasswordTitle": "إعادة تعيين كلمة المرور",
+    "resetPassword": "إعادة التعيين"
   },
   "spaces": {
     "title": "المساحات",
@@ -88,6 +153,8 @@
     "pendingBooking": "لديك حجز معلّق",
     "backToSpaces": "العودة للمساحات",
     "perHour": "لكل ساعة",
+    "priceUnitSeat": "السعر لكل مقعد في الساعة",
+    "priceUnitWhole": "السعر في الساعة للمساحة كاملة",
     "offer": "عرض فعّال"
   },
   "status": {
@@ -128,7 +195,10 @@
     "methodWallet": "محفظة إلكترونية",
     "methodCash": "نقدًا عند الوصول",
     "proofOptionalCash": "الإثبات اختياري للدفع النقدي عند الوصول.",
-    "markCashPending": "إبلاغ المالك (نقدًا)"
+    "markCashPending": "إبلاغ المالك (نقدًا)",
+    "detailsPendingTitle": "تفاصيل الدفع غير جاهزة بعد",
+    "detailsPendingHint": "لم ينشر المالك تعليمات دفع حقيقية بعد. تواصل معه لتأكيد طريقة الدفع — لا تستخدم النص المؤقت كبيانات بنكية.",
+    "placeholderText": "تواصل مع المالك لتأكيد طريقة الدفع."
   },
   "bookings": {
     "title": "حجوزاتي",
@@ -156,6 +226,13 @@
     "duration": "المدة",
     "estimatedTotal": "الإجمالي التقديري",
     "confirmCreate": "تأكيد الحجز",
+    "seats": "المقاعد",
+    "remainingSeats": "يتبقى {n} مقعدًا لهذا الموعد",
+    "wholeSpaceNotice": "هذا الحجز يحجز المساحة كاملة ({n} مقاعد).",
+    "priceUnitSeat": "التعرفة لكل مقعد في الساعة",
+    "priceUnitWhole": "التعرفة للمساحة كاملة في الساعة",
+    "priceUnitSeatShort": "/مقعد/س",
+    "priceUnitWholeShort": "/مساحة/س",
     "openingHours": "مفتوح {open} – {close}",
     "offerOff": "خصم {n}%",
     "view": "عرض",
@@ -172,6 +249,10 @@
   "owner": {
     "dashboardTitle": "لوحة المالك",
     "dashboardSubtitle": "إحصائيات مساحاتك وحجوزاتك وعروضك.",
+    "paymentSetupBannerTitle": "أضف تعليمات دفع حقيقية",
+    "paymentSetupBannerHint": "بعض المساحات المنشورة ما زالت تستخدم نصًا مؤقتًا. لن يرى الضيوف بيانات البنك أو المحفظة حتى تستبدله.",
+    "paymentSetupBannerCta": "تحديث تفاصيل الدفع",
+    "paymentSetupFormHint": "هذه المساحة ما زالت تستخدم نصًا مؤقتًا. استبدله بتعليمات البنك أو المحفظة أو الدفع النقدي الحقيقية قبل أن يتمكن الضيوف من الدفع.",
     "statSpaces": "المساحات",
     "statBookings": "الحجوزات",
     "statPending": "معلّقة",
@@ -190,8 +271,16 @@
     "workspacesSubtitle": "أنشئ وأدر المساحات والمعرض والمرافق.",
     "addWorkspace": "إضافة مساحة",
     "searchWorkspaces": "ابحث بالاسم أو الموقع…",
-    "capacity": "السعة",
+    "capacity": "السعة (إجمالي المقاعد)",
+    "bookingMode": "نمط الحجز",
+    "bookingModeSeat": "حسب المقعد",
+    "bookingModeWhole": "المساحة كاملة",
+    "bookingModeSeatHint": "يحجز الضيوف مقعدًا أو أكثر. السعر لكل مقعد في الساعة. الحجوزات المتداخلة تتشارك السعة حتى تمتلئ.",
+    "bookingModeWholeHint": "يحجز الضيف المساحة كاملة. أي تداخل زمني يُرفض. السعر تعرفة ساعية ثابتة للمساحة كاملة (لا تُضرب بعدد المقاعد).",
+    "bookingModeLocked": "لا يمكن تغيير نمط الحجز بينما توجد حجوزات معلّقة أو مؤكدة لم تنتهِ بعد.",
     "pricePerHour": "السعر / ساعة",
+    "pricePerHourSeat": "السعر لكل مقعد في الساعة",
+    "pricePerHourWhole": "السعر في الساعة للمساحة كاملة",
     "description": "الوصف",
     "openingTime": "الافتتاح",
     "closingTime": "الإغلاق",
@@ -264,18 +353,44 @@
     "manageBookings": "إدارة الحجوزات",
     "viewReports": "التقارير",
     "usersTitle": "المستخدمون",
-    "usersSubtitle": "كل الحسابات والأدوار.",
+    "usersSubtitle": "إنشاء الملاك وإدارة الحسابات. التسجيل العام ينشئ مستخدمين فقط.",
+    "createUser": "إنشاء حساب",
+    "createUserHint": "يُنشأ الملاك من هنا فقط. يُرسل رابط تعيين كلمة السر بالبريد، أو يُعرض مرة واحدة إن لم يُضبط البريد.",
     "editUser": "تعديل مستخدم",
     "name": "الاسم",
     "email": "البريد",
+    "phone": "الهاتف (اختياري)",
     "joined": "انضم",
-    "newPassword": "كلمة سر جديدة (اختياري)",
-    "confirmPassword": "تأكيد كلمة السر",
+    "active": "نشط",
+    "suspended": "موقوف",
+    "suspend": "إيقاف",
+    "reactivate": "إعادة تفعيل",
+    "suspendTitle": "إيقاف هذا الحساب؟",
+    "suspendMessage": "لن يتمكن من تسجيل الدخول. مساحات المالك تُخفى من القائمة العامة. الحجوزات والمدفوعات تُحفظ.",
+    "deleteUserTitle": "حذف هذا الحساب؟",
+    "deleteUserMessage": "يُحذف فقط الحسابات بلا حجوزات أو مدفوعات.",
+    "cannotDeleteSelf": "لا يمكنك تغيير حمايات حسابك كأدمن.",
+    "cannotDeleteLastAdmin": "لا يمكن إزالة أو تخفيض آخر أدمن.",
+    "cannotDeleteWithHistory": "لهذا الحساب حجوزات أو مدفوعات — أوقفه بدل الحذف.",
+    "resendInvite": "إعادة إرسال رابط الإعداد",
+    "inviteSent": "تم إرسال دعوة تعيين كلمة السر إلى :email.",
+    "inviteWillEmail": "سيُرسل رابط تعيين كلمة السر إلى البريد الإلكتروني للحساب الجديد.",
+    "inviteLinkTitle": "رابط إعداد لمرة واحدة",
+    "inviteLinkHint": "البريد غير مضبوط. انسخ هذا الرابط وشاركه بأمان. يُعرض مرة واحدة.",
+    "copyLink": "نسخ الرابط",
+    "copied": "تم النسخ",
+    "filterRole": "تصفية حسب الدور",
     "roleUser": "مستخدم",
     "roleOwner": "مالك",
     "roleAdmin": "أدمن",
     "workspacesTitle": "كل المساحات",
     "workspacesSubtitle": "جميع المساحات على المنصة.",
+    "createWorkspace": "إنشاء مساحة",
+    "createWorkspaceHint": "اختر مالكًا نشطًا ثم عبّئ نفس حقول المالك.",
+    "selectOwner": "اختر مالكًا نشطًا",
+    "archiveWorkspace": "أرشفة",
+    "archiveWorkspaceConfirm": "هذه المساحة لديها حجوزات. هل تريد أرشفتها بدل الحذف؟",
+    "deleteWorkspaceConfirm": "حذف هذه المساحة نهائيًا؟",
     "owner": "المالك",
     "searchSpaces": "ابحث بالاسم أو الموقع…",
     "bookingsTitle": "كل الحجوزات",

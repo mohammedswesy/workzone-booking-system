@@ -62,6 +62,16 @@ class DashboardController extends Controller
             ->limit(5)
             ->get(['id', 'workspace_id', 'title', 'discount_percent', 'starts_at', 'ends_at', 'is_active']);
 
+        $needsPaymentSetup = Workspace::query()
+            ->where('owner_id', $ownerId)
+            ->get(['id', 'name', 'payment_instructions', 'status'])
+            ->filter(fn (Workspace $ws) => $ws->hasPlaceholderPaymentInstructions())
+            ->map(fn (Workspace $ws) => [
+                'id' => $ws->id,
+                'name' => $ws->name,
+            ])
+            ->values();
+
         return Inertia::render('Owner/Dashboard', [
             'stats' => [
                 'workspaces_count' => $workspaceIds->count(),
@@ -76,6 +86,7 @@ class DashboardController extends Controller
             'topWorkspaces' => $topWorkspaces,
             'recentBookings' => $recentBookings,
             'activeOffers' => $activeOffers,
+            'needsPaymentSetup' => $needsPaymentSetup,
         ]);
     }
 }

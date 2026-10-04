@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('workspaces', function (Blueprint $table) {
             //
-             $table->string('image_url')->nullable()->after('price_per_hour');
+            $table->string('image_url')->nullable()->after('price_per_hour');
         });
     }
 
@@ -24,7 +24,7 @@ return new class extends Migration
     {
         Schema::table('workspaces', function (Blueprint $table) {
             //
-             $table->dropColumn('image_url');
+            $table->dropColumn('image_url');
         });
     }
 };

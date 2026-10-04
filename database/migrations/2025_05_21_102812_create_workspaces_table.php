@@ -14,10 +14,10 @@ return new class extends Migration
         Schema::create('workspaces', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-        $table->string('location');
-        $table->text('description')->nullable();
-        $table->integer('capacity');
-        $table->decimal('price_per_hour', 8, 2);
+            $table->string('location');
+            $table->text('description')->nullable();
+            $table->integer('capacity');
+            $table->decimal('price_per_hour', 8, 2);
             $table->timestamps();
         });
     }
