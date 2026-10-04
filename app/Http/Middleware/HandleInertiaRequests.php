@@ -27,27 +27,28 @@ class HandleInertiaRequests extends Middleware
      *
      * @return array<string, mixed>
      */
-   public function share(Request $request): array
-{
-    $user = $request->user();
+    public function share(Request $request): array
+    {
+        $user = $request->user();
+        $role = $user?->role;
 
-    return array_merge(parent::share($request), [
-        'auth' => [
-            // نرسل فقط الحقول الضرورية بدل الموديل كامل
-            'user' => $user ? [
-                'id'    => $user->id,
-                'name'  => $user->name,
-                'email' => $user->email,
-            ] : null,
-            // مهم: إرسال الدور (عمود role في جدول users)
-            'role' => $user?->role, // قيم متوقعة: 'user' | 'owner' | 'admin'
-        ],
-        // (اختياري) تمرير رسائل الفلاش للفرونت
-        'flash' => [
-            'success' => fn () => $request->session()->get('success'),
-            'error'   => fn () => $request->session()->get('error'),
-        ],
-    ]);
-}
-
+        return array_merge(parent::share($request), [
+            'auth' => [
+                'user' => $user ? [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ] : null,
+                'role' => $role instanceof \BackedEnum ? $role->value : $role,
+            ],
+            'brand' => [
+                'name' => 'WorkZone',
+                'tagline' => 'Gaza Tashreel',
+            ],
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+            ],
+        ]);
+    }
 }

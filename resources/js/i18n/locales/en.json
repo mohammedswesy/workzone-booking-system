@@ -1,0 +1,53 @@
+{
+  "brand": {
+    "name": "WorkZone",
+    "tagline": "Built by Gaza Tashreel"
+  },
+  "nav": {
+    "home": "Home",
+    "spaces": "Spaces",
+    "dashboard": "Dashboard",
+    "bookings": "Bookings",
+    "workspaces": "Workspaces",
+    "offers": "Offers",
+    "users": "Users",
+    "reports": "Reports",
+    "profile": "Profile",
+    "logout": "Log out",
+    "login": "Log in",
+    "register": "Register"
+  },
+  "common": {
+    "language": "Language",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "search": "Search",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "loading": "Loading…",
+    "empty": "Nothing here yet",
+    "emptyHint": "When there is data, it will show up here.",
+    "role": "Role",
+    "actions": "Actions",
+    "close": "Close"
+  },
+  "home": {
+    "eyebrow": "Coworking in Gaza",
+    "title": "Find your next workspace",
+    "subtitle": "Search and book desks, rooms, and shared spaces in minutes.",
+    "cta": "Explore spaces"
+  },
+  "auth": {
+    "welcome": "Welcome back",
+    "welcomeHint": "Sign in to manage bookings and spaces."
+  },
+  "toast": {
+    "success": "Done",
+    "error": "Something went wrong"
+  }
+}

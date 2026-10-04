@@ -1,3 +1,77 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    :root {
+        --wz-bg: #f4f7f5;
+        --wz-bg-elevated: #ffffff;
+        --wz-bg-muted: #e7efe9;
+        --wz-fg: #14201b;
+        --wz-fg-muted: #5b6b63;
+        --wz-border: #d5e0da;
+        --wz-brand: #0f6b5c;
+        --wz-brand-fg: #ffffff;
+        --wz-brand-soft: #d9f0ea;
+        --wz-accent: #c45c26;
+        --wz-accent-soft: #f8e6dc;
+        --wz-success: #1f7a4d;
+        --wz-warning: #b7791f;
+        --wz-danger: #b42318;
+        --wz-ring: rgba(15, 107, 92, 0.35);
+        --wz-shadow: 0 10px 30px rgba(20, 32, 27, 0.08);
+        --wz-radius: 0.9rem;
+        color-scheme: light;
+    }
+
+    .dark {
+        --wz-bg: #0d1512;
+        --wz-bg-elevated: #15201b;
+        --wz-bg-muted: #1d2a24;
+        --wz-fg: #e8f2ec;
+        --wz-fg-muted: #9db0a6;
+        --wz-border: #2a3b33;
+        --wz-brand: #3dbaa3;
+        --wz-brand-fg: #06221c;
+        --wz-brand-soft: #16362e;
+        --wz-accent: #e08a52;
+        --wz-accent-soft: #3a2418;
+        --wz-success: #3fbf7f;
+        --wz-warning: #e3b341;
+        --wz-danger: #f07066;
+        --wz-ring: rgba(61, 186, 163, 0.4);
+        --wz-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+        color-scheme: dark;
+    }
+
+    html {
+        @apply scroll-smooth;
+    }
+
+    body {
+        background: var(--wz-bg);
+        color: var(--wz-fg);
+        @apply antialiased;
+        font-family: 'Plus Jakarta Sans', 'IBM Plex Sans Arabic', ui-sans-serif, system-ui, sans-serif;
+    }
+
+    ::selection {
+        background: var(--wz-brand-soft);
+        color: var(--wz-fg);
+    }
+}
+
+@layer components {
+    .wz-surface {
+        background: var(--wz-bg-elevated);
+        border: 1px solid var(--wz-border);
+        border-radius: var(--wz-radius);
+        box-shadow: var(--wz-shadow);
+    }
+
+    .wz-focus {
+        @apply outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+        --tw-ring-color: var(--wz-ring);
+        --tw-ring-offset-color: var(--wz-bg);
+    }
+}

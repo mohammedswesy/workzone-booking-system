@@ -33,7 +33,10 @@ const submit = () => {
     <GuestLayout>
         <Head title="Log in" />
 
-        <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
+        <h1 class="mb-1 text-2xl font-semibold text-wz-fg">{{ $t('auth.welcome') }}</h1>
+        <p class="mb-6 text-sm text-wz-fg-muted">{{ $t('auth.welcomeHint') }}</p>
+
+        <div v-if="status" class="mb-4 text-sm font-medium text-wz-success">
             {{ status }}
         </div>
 
