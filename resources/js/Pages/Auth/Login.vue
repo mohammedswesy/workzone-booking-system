@@ -2,19 +2,17 @@
 import Checkbox from '@/Components/Checkbox.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
+import Button from '@/Components/Ui/Button.vue';
+import Input from '@/Components/Ui/Input.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 
 defineProps({
-    canResetPassword: {
-        type: Boolean,
-    },
-    status: {
-        type: String,
-    },
+    canResetPassword: Boolean,
+    status: String,
 });
+
+const { t } = useI18n();
 
 const form = useForm({
     email: '',
@@ -31,73 +29,59 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Log in" />
+        <Head :title="t('auth.login')" />
 
-        <h1 class="mb-1 text-2xl font-semibold text-wz-fg">{{ $t('auth.welcome') }}</h1>
-        <p class="mb-6 text-sm text-wz-fg-muted">{{ $t('auth.welcomeHint') }}</p>
+        <h1 class="mb-1 text-2xl font-semibold text-wz-fg">{{ t('auth.welcome') }}</h1>
+        <p class="mb-6 text-sm text-wz-fg-muted">{{ t('auth.welcomeHint') }}</p>
 
-        <div v-if="status" class="mb-4 text-sm font-medium text-wz-success">
-            {{ status }}
-        </div>
+        <div v-if="status" class="mb-4 text-sm font-medium text-wz-success">{{ status }}</div>
 
-        <form @submit.prevent="submit">
-            <div>
-                <InputLabel for="email" value="Email" />
+        <form class="space-y-4" @submit.prevent="submit">
+            <Input
+                id="email"
+                v-model="form.email"
+                type="email"
+                autocomplete="username"
+                :error="form.errors.email"
+                required
+            >
+                <template #label>{{ t('auth.email') }}</template>
+            </Input>
 
-                <TextInput
-                    id="email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    v-model="form.email"
-                    required
-                    autofocus
-                    autocomplete="username"
-                />
+            <Input
+                id="password"
+                v-model="form.password"
+                type="password"
+                autocomplete="current-password"
+                :error="form.errors.password"
+                required
+            >
+                <template #label>{{ t('auth.password') }}</template>
+            </Input>
 
-                <InputError class="mt-2" :message="form.errors.email" />
-            </div>
+            <label class="flex items-center gap-2 text-sm text-wz-fg">
+                <Checkbox v-model:checked="form.remember" name="remember" />
+                {{ t('auth.remember') }}
+            </label>
 
-            <div class="mt-4">
-                <InputLabel for="password" value="Password" />
-
-                <TextInput
-                    id="password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password"
-                    required
-                    autocomplete="current-password"
-                />
-
-                <InputError class="mt-2" :message="form.errors.password" />
-            </div>
-
-            <div class="mt-4 block">
-                <label class="flex items-center">
-                    <Checkbox name="remember" v-model:checked="form.remember" />
-                    <span class="ms-2 text-sm text-gray-600"
-                        >Remember me</span
-                    >
-                </label>
-            </div>
-
-            <div class="mt-4 flex items-center justify-end">
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
                 <Link
                     v-if="canResetPassword"
                     :href="route('password.request')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    class="text-sm text-wz-brand hover:underline"
                 >
-                    Forgot your password?
+                    {{ t('auth.forgot') }}
                 </Link>
-
-                <PrimaryButton
-                    class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
-                    Log in
-                </PrimaryButton>
+                <Button type="submit" :disabled="form.processing">{{ t('auth.login') }}</Button>
             </div>
+
+            <p class="pt-2 text-sm text-wz-fg-muted">
+                {{ t('auth.noAccount') }}
+                <Link :href="route('register')" class="font-medium text-wz-brand hover:underline">
+                    {{ t('auth.register') }}
+                </Link>
+            </p>
+            <InputError :message="form.errors.email" class="hidden" />
         </form>
     </GuestLayout>
 </template>

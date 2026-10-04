@@ -13,7 +13,7 @@ defineEmits(['update:modelValue']);
 
 <template>
     <div class="grid gap-1.5">
-        <label v-if="$slots.label || $attrs.label" :for="id" class="text-sm font-medium text-wz-fg">
+        <label v-if="$slots.label" :for="id" class="text-sm font-medium text-wz-fg">
             <slot name="label" />
         </label>
         <input

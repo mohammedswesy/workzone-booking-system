@@ -1,10 +1,11 @@
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
+import Button from '@/Components/Ui/Button.vue';
+import Input from '@/Components/Ui/Input.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const form = useForm({
     name: '',
@@ -22,91 +23,51 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Register" />
+        <Head :title="t('auth.register')" />
 
-        <form @submit.prevent="submit">
-            <div>
-                <InputLabel for="name" value="Name" />
+        <h1 class="mb-1 text-2xl font-semibold text-wz-fg">{{ t('auth.registerTitle') }}</h1>
+        <p class="mb-6 text-sm text-wz-fg-muted">{{ t('auth.registerHint') }}</p>
 
-                <TextInput
-                    id="name"
-                    type="text"
-                    class="mt-1 block w-full"
-                    v-model="form.name"
-                    required
-                    autofocus
-                    autocomplete="name"
-                />
+        <form class="space-y-4" @submit.prevent="submit">
+            <Input id="name" v-model="form.name" autocomplete="name" :error="form.errors.name" required>
+                <template #label>{{ t('auth.name') }}</template>
+            </Input>
+            <Input
+                id="email"
+                v-model="form.email"
+                type="email"
+                autocomplete="username"
+                :error="form.errors.email"
+                required
+            >
+                <template #label>{{ t('auth.email') }}</template>
+            </Input>
+            <Input
+                id="password"
+                v-model="form.password"
+                type="password"
+                autocomplete="new-password"
+                :error="form.errors.password"
+                required
+            >
+                <template #label>{{ t('auth.password') }}</template>
+            </Input>
+            <Input
+                id="password_confirmation"
+                v-model="form.password_confirmation"
+                type="password"
+                autocomplete="new-password"
+                :error="form.errors.password_confirmation"
+                required
+            >
+                <template #label>{{ t('auth.confirmPassword') }}</template>
+            </Input>
 
-                <InputError class="mt-2" :message="form.errors.name" />
-            </div>
-
-            <div class="mt-4">
-                <InputLabel for="email" value="Email" />
-
-                <TextInput
-                    id="email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    v-model="form.email"
-                    required
-                    autocomplete="username"
-                />
-
-                <InputError class="mt-2" :message="form.errors.email" />
-            </div>
-
-            <div class="mt-4">
-                <InputLabel for="password" value="Password" />
-
-                <TextInput
-                    id="password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password"
-                    required
-                    autocomplete="new-password"
-                />
-
-                <InputError class="mt-2" :message="form.errors.password" />
-            </div>
-
-            <div class="mt-4">
-                <InputLabel
-                    for="password_confirmation"
-                    value="Confirm Password"
-                />
-
-                <TextInput
-                    id="password_confirmation"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password_confirmation"
-                    required
-                    autocomplete="new-password"
-                />
-
-                <InputError
-                    class="mt-2"
-                    :message="form.errors.password_confirmation"
-                />
-            </div>
-
-            <div class="mt-4 flex items-center justify-end">
-                <Link
-                    :href="route('login')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
-                    Already registered?
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <Link :href="route('login')" class="text-sm text-wz-brand hover:underline">
+                    {{ t('auth.alreadyRegistered') }}
                 </Link>
-
-                <PrimaryButton
-                    class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
-                    Register
-                </PrimaryButton>
+                <Button type="submit" :disabled="form.processing">{{ t('auth.register') }}</Button>
             </div>
         </form>
     </GuestLayout>

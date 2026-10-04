@@ -14,11 +14,27 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\User\BookingController as UserBookingController;
 use App\Http\Controllers\User\DashboardController as UserDashboardController;
 use App\Http\Controllers\User\WorkspaceController as UserWorkspaceController;
+use App\Models\Workspace;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', fn () => Inertia::render('Home'))->name('home');
+Route::get('/', function () {
+    return Inertia::render('Home', [
+        'featured' => Workspace::query()
+            ->published()
+            ->featured()
+            ->with([
+                'place:id,name,city',
+                'amenities:id,name',
+                'images' => fn ($q) => $q->orderBy('sort_order')->limit(1),
+                'activeOffers',
+            ])
+            ->latest()
+            ->take(3)
+            ->get(),
+    ]);
+})->name('home');
 
 Route::get('/spaces', [UserWorkspaceController::class, 'index'])->name('spaces.index');
 Route::get('/spaces/{workspace}', [UserWorkspaceController::class, 'show'])->name('spaces.show');

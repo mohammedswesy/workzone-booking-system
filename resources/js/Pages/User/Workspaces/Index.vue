@@ -1,89 +1,173 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue'
-import Pagination from '@/Components/Ui/Pagination.vue'
-import { Link } from '@inertiajs/vue3'
+import { computed, reactive, ref } from 'vue';
+import { Head, router } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Ui/Pagination.vue';
+import WorkspaceCard from '@/Components/Ui/WorkspaceCard.vue';
+import PageHeader from '@/Components/Ui/PageHeader.vue';
+import EmptyState from '@/Components/Ui/EmptyState.vue';
+import Button from '@/Components/Ui/Button.vue';
+import Input from '@/Components/Ui/Input.vue';
 
 const props = defineProps({
-  spaces: Object,   // paginate: { data, links, ... } أو array
-  filters: Object,  // { search, per_page? }
-})
+    spaces: Object,
+    filters: Object,
+    locations: { type: Array, default: () => [] },
+    amenities: { type: Array, default: () => [] },
+});
+
+const { t } = useI18n();
+const drawerOpen = ref(false);
+
+const form = reactive({
+    search: props.filters?.search || '',
+    city: props.filters?.city || '',
+    min_price: props.filters?.min_price || '',
+    max_price: props.filters?.max_price || '',
+    capacity: props.filters?.capacity || '',
+    featured: Boolean(props.filters?.featured),
+    amenities: String(props.filters?.amenities || '')
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean),
+});
+
+const items = computed(() => props.spaces?.data ?? []);
+
+function apply() {
+    router.get(
+        route('spaces.index'),
+        {
+            search: form.search || undefined,
+            city: form.city || undefined,
+            min_price: form.min_price || undefined,
+            max_price: form.max_price || undefined,
+            capacity: form.capacity || undefined,
+            featured: form.featured ? 1 : undefined,
+            amenities: form.amenities.length ? form.amenities.join(',') : undefined,
+        },
+        { preserveState: true, replace: true },
+    );
+    drawerOpen.value = false;
+}
+
+function reset() {
+    form.search = '';
+    form.city = '';
+    form.min_price = '';
+    form.max_price = '';
+    form.capacity = '';
+    form.featured = false;
+    form.amenities = [];
+    apply();
+}
+
+function toggleAmenity(id) {
+    const key = String(id);
+    if (form.amenities.includes(key)) {
+        form.amenities = form.amenities.filter((a) => a !== key);
+    } else {
+        form.amenities.push(key);
+    }
+}
 </script>
 
 <template>
-  <AppLayout title="Spaces">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-xl font-semibold">Available Workspaces</h2>
+    <AppLayout :title="t('spaces.title')">
+        <Head :title="t('spaces.title')" />
 
-      <form method="get" class="flex gap-2">
-        <input
-          name="search"
-          :value="filters?.search"
-          placeholder="Search by name or location..."
-          class="border rounded px-3 py-1.5 w-64"
-        />
-        <button class="bg-gray-900 text-white px-4 py-1.5 rounded">
-          Search
-        </button>
-      </form>
-    </div>
+        <PageHeader :title="t('spaces.title')" :subtitle="t('spaces.subtitle')">
+            <template #actions>
+                <Button class="md:hidden" variant="secondary" @click="drawerOpen = true">
+                    {{ t('spaces.filters') }}
+                </Button>
+            </template>
+        </PageHeader>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-      <div
-        v-for="s in (spaces.data ?? spaces)"
-        :key="s.id"
-        class="bg-white border rounded p-4 flex flex-col"
-      >
-        <img
-          v-if="s.image_url"
-          :src="s.image_url"
-          alt=""
-          class="w-full h-36 object-cover rounded mb-3"
-        />
+        <div class="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+            <!-- Desktop filters -->
+            <aside class="wz-surface hidden h-fit p-4 md:block">
+                <h2 class="mb-3 text-sm font-semibold text-wz-fg">{{ t('spaces.filters') }}</h2>
+                <form class="grid gap-3" @submit.prevent="apply">
+                    <Input v-model="form.search" :placeholder="t('spaces.search')" />
+                    <Input v-model="form.city" :placeholder="t('spaces.city')" />
+                    <div class="grid grid-cols-2 gap-2">
+                        <Input v-model="form.min_price" type="number" :placeholder="t('spaces.minPrice')" />
+                        <Input v-model="form.max_price" type="number" :placeholder="t('spaces.maxPrice')" />
+                    </div>
+                    <Input v-model="form.capacity" type="number" :placeholder="t('spaces.capacity', { n: '' }).trim()" />
+                    <label class="flex items-center gap-2 text-sm text-wz-fg">
+                        <input v-model="form.featured" type="checkbox" class="rounded border-wz-border text-wz-brand" />
+                        {{ t('spaces.onlyFeatured') }}
+                    </label>
+                    <div v-if="amenities.length" class="grid gap-2">
+                        <p class="text-xs font-medium text-wz-fg-muted">{{ t('spaces.amenities') }}</p>
+                        <label
+                            v-for="a in amenities"
+                            :key="a.id"
+                            class="flex items-center gap-2 text-sm text-wz-fg"
+                        >
+                            <input
+                                type="checkbox"
+                                class="rounded border-wz-border text-wz-brand"
+                                :checked="form.amenities.includes(String(a.id))"
+                                @change="toggleAmenity(a.id)"
+                            />
+                            {{ a.name }}
+                        </label>
+                    </div>
+                    <div class="flex gap-2 pt-1">
+                        <Button type="submit" class="flex-1">{{ t('spaces.apply') }}</Button>
+                        <Button type="button" variant="secondary" @click="reset">{{ t('spaces.reset') }}</Button>
+                    </div>
+                </form>
+            </aside>
 
-        <div class="flex items-start justify-between gap-2">
-          <div>
-            <h3 class="font-semibold">{{ s.name }}</h3>
-            <p class="text-sm text-gray-600">{{ s.location }}</p>
-          </div>
+            <div>
+                <EmptyState
+                    v-if="!items.length"
+                    :title="t('spaces.empty')"
+                    :description="t('spaces.emptyHint')"
+                >
+                    <template #action>
+                        <Button variant="secondary" @click="reset">{{ t('spaces.reset') }}</Button>
+                    </template>
+                </EmptyState>
 
-          <span
-            v-if="s.offer_label || (s.active_discount_percent ?? 0) > 0"
-            class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded"
-          >
-            {{ s.offer_label ?? ('خصم ' + s.active_discount_percent + '%') }}
-          </span>
+                <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <WorkspaceCard v-for="s in items" :key="s.id" :space="s" />
+                </div>
+
+                <Pagination v-if="spaces?.links" :links="spaces.links" />
+            </div>
         </div>
 
-        <div class="mt-2 text-sm flex items-center gap-2">
-          <template v-if="(s.active_discount_percent ?? 0) > 0 && s.effective_price_per_hour < s.price_per_hour">
-            <span class="line-through text-gray-400">${{ Number(s.price_per_hour).toFixed(2) }}/h</span>
-            <span class="font-semibold">${{ Number(s.effective_price_per_hour).toFixed(2) }}/h</span>
-          </template>
-          <template v-else>
-            <span class="font-semibold">${{ Number(s.price_per_hour).toFixed(2) }}/h</span>
-          </template>
+        <!-- Mobile filter drawer -->
+        <div
+            v-if="drawerOpen"
+            class="fixed inset-0 z-40 bg-black/40 md:hidden"
+            @click.self="drawerOpen = false"
+        >
+            <div class="absolute inset-y-0 end-0 w-[min(100%,22rem)] overflow-y-auto bg-wz-elevated p-4 shadow-wz">
+                <div class="mb-4 flex items-center justify-between">
+                    <h2 class="font-semibold">{{ t('spaces.filters') }}</h2>
+                    <Button size="sm" variant="ghost" @click="drawerOpen = false">{{ t('common.close') }}</Button>
+                </div>
+                <form class="grid gap-3" @submit.prevent="apply">
+                    <Input v-model="form.search" :placeholder="t('spaces.search')" />
+                    <Input v-model="form.city" :placeholder="t('spaces.city')" />
+                    <div class="grid grid-cols-2 gap-2">
+                        <Input v-model="form.min_price" type="number" :placeholder="t('spaces.minPrice')" />
+                        <Input v-model="form.max_price" type="number" :placeholder="t('spaces.maxPrice')" />
+                    </div>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input v-model="form.featured" type="checkbox" class="rounded border-wz-border text-wz-brand" />
+                        {{ t('spaces.onlyFeatured') }}
+                    </label>
+                    <Button type="submit">{{ t('spaces.apply') }}</Button>
+                </form>
+            </div>
         </div>
-
-        <p class="text-xs text-gray-500">Capacity: {{ s.capacity }}</p>
-
-        <div class="mt-3 flex gap-2">
-          <Link
-            :href="route('spaces.show', s.id)"
-            class="inline-block border px-3 py-1.5 rounded text-sm hover:bg-gray-50"
-          >
-            عرض التفاصيل
-          </Link>
-
-          <Link
-            :href="route('user.bookings.create', { workspace_id: s.id })"
-            class="inline-block bg-indigo-600 text-white px-3 py-1.5 rounded text-sm"
-          >
-            Book now
-          </Link>
-        </div>
-      </div>
-    </div>
-
-    <Pagination v-if="spaces.links" :links="spaces.links" />
-  </AppLayout>
+    </AppLayout>
 </template>

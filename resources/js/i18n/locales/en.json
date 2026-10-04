@@ -36,16 +36,6 @@
     "actions": "Actions",
     "close": "Close"
   },
-  "home": {
-    "eyebrow": "Coworking in Gaza",
-    "title": "Find your next workspace",
-    "subtitle": "Search and book desks, rooms, and shared spaces in minutes.",
-    "cta": "Explore spaces"
-  },
-  "auth": {
-    "welcome": "Welcome back",
-    "welcomeHint": "Sign in to manage bookings and spaces."
-  },
   "toast": {
     "success": "Done",
     "error": "Something went wrong"
@@ -54,5 +44,66 @@
     "label": "Pagination",
     "previous": "Previous",
     "next": "Next"
+  },
+  "auth": {
+    "welcome": "Welcome back",
+    "welcomeHint": "Sign in to manage bookings and spaces.",
+    "registerTitle": "Create your account",
+    "registerHint": "Join WorkZone to book coworking spaces.",
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "confirmPassword": "Confirm password",
+    "remember": "Remember me",
+    "forgot": "Forgot your password?",
+    "login": "Log in",
+    "register": "Register",
+    "alreadyRegistered": "Already registered?",
+    "noAccount": "Need an account?"
+  },
+  "spaces": {
+    "title": "Workspaces",
+    "subtitle": "Filter by location, price, capacity, and amenities.",
+    "search": "Search spaces…",
+    "filters": "Filters",
+    "apply": "Apply filters",
+    "reset": "Reset",
+    "featured": "Featured",
+    "discount": "{n}% off",
+    "capacity": "{n} seats",
+    "details": "Details",
+    "book": "Book",
+    "empty": "No spaces match your filters",
+    "emptyHint": "Try widening the price range or clearing amenities.",
+    "minPrice": "Min price",
+    "maxPrice": "Max price",
+    "city": "City",
+    "amenities": "Amenities",
+    "onlyFeatured": "Featured only",
+    "hours": "Open {open} – {close}",
+    "about": "About",
+    "location": "Location",
+    "gallery": "Gallery",
+    "bookCta": "Book this space",
+    "pendingBooking": "You have a pending booking",
+    "backToSpaces": "Back to spaces",
+    "perHour": "per hour",
+    "offer": "Active offer"
+  },
+  "home": {
+    "eyebrow": "Coworking in Gaza",
+    "title": "Find your next workspace",
+    "subtitle": "Search and book desks, rooms, and shared spaces in minutes.",
+    "cta": "Explore spaces",
+    "howTitle": "How it works",
+    "how1": "Browse spaces",
+    "how1Hint": "Filter by city, price, and amenities.",
+    "how2": "Book a slot",
+    "how2Hint": "Pick a time within opening hours.",
+    "how3": "Pay & confirm",
+    "how3Hint": "Upload proof or pay with PayPal.",
+    "featuredTitle": "Featured spaces",
+    "ctaBand": "Ready to get productive?",
+    "ctaBandHint": "Join WorkZone and reserve your desk today."
   }
 }
