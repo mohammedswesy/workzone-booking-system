@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Owner;
 
 use App\Enums\BookingStatus;
+use App\Enums\PaymentProvider;
+use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateBookingStatusRequest;
 use App\Models\Booking;
+use App\Models\Payment;
+use App\Services\Payments\MarkBookingPaid;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -80,11 +84,39 @@ class BookingController extends Controller
         ]);
     }
 
-    public function update(UpdateBookingStatusRequest $request, Booking $booking)
+    public function update(UpdateBookingStatusRequest $request, Booking $booking, MarkBookingPaid $markPaid)
     {
-        $booking->update([
-            'status' => $request->validated('status'),
-        ]);
+        $status = BookingStatus::from($request->validated('status'));
+
+        if ($status === BookingStatus::Confirmed) {
+            $payment = $booking->payments()
+                ->where('provider', PaymentProvider::Manual)
+                ->latest()
+                ->first();
+
+            if (! $payment) {
+                $payment = Payment::create([
+                    'booking_id' => $booking->id,
+                    'provider' => PaymentProvider::Manual,
+                    'reference' => 'manual-confirm-'.$booking->id.'-'.uniqid(),
+                    'amount' => $booking->total_price,
+                    'currency' => config('payments.currency', 'USD'),
+                    'status' => PaymentStatus::Pending,
+                    'metadata' => ['source' => 'owner_manual_confirmation'],
+                ]);
+            }
+
+            if ($payment->status !== PaymentStatus::Paid) {
+                $markPaid->handle($payment, [
+                    'confirmed_by' => $request->user()->id,
+                    'source' => 'owner_manual_confirmation',
+                ]);
+            }
+
+            return back()->with('success', 'تم تأكيد الحجز بعد التحقق اليدوي من الدفع.');
+        }
+
+        $booking->update(['status' => $status]);
 
         return back()->with('success', 'تم تحديث حالة الحجز.');
     }

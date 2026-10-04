@@ -169,6 +169,7 @@ it('forbids owners from changing hours or price via update', function () {
     $booking->refresh();
 
     expect($booking->status)->toBe(BookingStatus::Confirmed)
+        ->and($booking->payment_status)->toBe(\App\Enums\PaymentStatus::Paid)
         ->and($booking->hours)->toBe(2)
         ->and((string) $booking->total_price)->toBe('200.00');
 });

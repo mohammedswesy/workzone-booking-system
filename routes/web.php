@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\WorkspaceController as AdminWorkspaceController;
 use App\Http\Controllers\Owner\BookingController as OwnerBookingController;
 use App\Http\Controllers\Owner\OfferController;
 use App\Http\Controllers\Owner\WorkspaceController as OwnerWorkspaceController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\User\BookingController as UserBookingController;
 use App\Http\Controllers\User\WorkspaceController as UserWorkspaceController;
@@ -133,6 +134,20 @@ Route::middleware(['auth', 'role:user'])
     ->group(function () {
         Route::resource('bookings', UserBookingController::class)
             ->parameters(['bookings' => 'booking']);
+
+        Route::post('bookings/{booking}/payments/manual', [PaymentController::class, 'storeManual'])
+            ->name('payments.manual.store');
+        Route::post('bookings/{booking}/payments/paypal', [PaymentController::class, 'storePaypal'])
+            ->name('payments.paypal.store');
     });
+
+Route::middleware('auth')->group(function () {
+    Route::get('/payments/paypal/return', [PaymentController::class, 'paypalReturn'])->name('payments.paypal.return');
+    Route::get('/payments/paypal/cancel', [PaymentController::class, 'paypalCancel'])->name('payments.paypal.cancel');
+    Route::post('/payments/{payment}/confirm', [PaymentController::class, 'confirmManual'])
+        ->name('payments.manual.confirm');
+});
+
+Route::post('/webhooks/paypal', [PaymentController::class, 'webhookPaypal'])->name('webhooks.paypal');
 
 require __DIR__.'/auth.php';
