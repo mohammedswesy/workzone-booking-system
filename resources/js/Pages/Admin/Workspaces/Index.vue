@@ -1,54 +1,118 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue'
-import Pagination from '@/Components/Ui/Pagination.vue'
-import { Link } from '@inertiajs/vue3'
+import { ref } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/Ui/PageHeader.vue';
+import Pagination from '@/Components/Ui/Pagination.vue';
+import EmptyState from '@/Components/Ui/EmptyState.vue';
+import Button from '@/Components/Ui/Button.vue';
+import Input from '@/Components/Ui/Input.vue';
+import Badge from '@/Components/Ui/Badge.vue';
 
 const props = defineProps({
-  spaces: Object, // paginate with owner eager-loaded
-  filters: Object
-})
+    spaces: Object,
+    filters: Object,
+});
+
+const { t } = useI18n();
+const search = ref(props.filters?.search ?? '');
+
+function apply() {
+    router.get(
+        route('admin.workspaces.index'),
+        { search: search.value || undefined },
+        { preserveState: true, replace: true },
+    );
+}
+
+function statusLabel(status) {
+    return t(`owner.${status}`, status);
+}
 </script>
 
 <template>
-  <AppLayout title="All Workspaces">
-    <form method="get" class="mb-4">
-      <input name="search" :value="filters?.search" placeholder="Search name/location"
-             class="border rounded px-3 py-2 w-72" />
-      <button class="ml-2 px-3 py-2 rounded bg-gray-900 text-white">Search</button>
-    </form>
+    <AppLayout :title="t('admin.workspacesTitle')">
+        <Head :title="t('admin.workspacesTitle')" />
 
-    <div class="bg-white border rounded">
-      <table class="w-full text-sm">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="px-3 py-2 text-left">#</th>
-            <th class="px-3 py-2 text-left">Name</th>
-            <th class="px-3 py-2 text-left">Owner</th>
-            <th class="px-3 py-2 text-left">Location</th>
-            <th class="px-3 py-2 text-left">Capacity</th>
-            <th class="px-3 py-2 text-left">Price/h</th>
-            <th class="px-3 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="s in spaces.data" :key="s.id" class="border-t">
-            <td class="px-3 py-2">{{ s.id }}</td>
-            <td class="px-3 py-2">{{ s.name }}</td>
-            <td class="px-3 py-2">{{ s.owner?.name }}</td>
-            <td class="px-3 py-2">{{ s.location }}</td>
-            <td class="px-3 py-2">{{ s.capacity }}</td>
-            <td class="px-3 py-2">{{ s.price_per_hour }}</td>
-            <td class="px-3 py-2 text-right">
-              <Link :href="route('admin.workspaces.edit', s.id)" class="text-indigo-600 hover:underline">Edit</Link>
-            </td>
-          </tr>
-          <tr v-if="!spaces.data?.length">
-            <td colspan="7" class="px-3 py-6 text-center text-gray-500">No workspaces.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+        <PageHeader
+            :title="t('admin.workspacesTitle')"
+            :subtitle="t('admin.workspacesSubtitle')"
+        />
 
-    <Pagination :links="spaces.links" />
-  </AppLayout>
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div class="flex-1">
+                <Input
+                    id="admin-space-search"
+                    v-model="search"
+                    :placeholder="t('admin.searchSpaces')"
+                    @keyup.enter="apply"
+                >
+                    <template #label>{{ t('common.search') }}</template>
+                </Input>
+            </div>
+            <Button variant="secondary" @click="apply">{{ t('owner.apply') }}</Button>
+        </div>
+
+        <EmptyState
+            v-if="!spaces?.data?.length"
+            :title="t('common.empty')"
+            :description="t('admin.workspacesSubtitle')"
+        />
+
+        <template v-else>
+            <div class="space-y-3 md:hidden">
+                <article v-for="s in spaces.data" :key="s.id" class="wz-surface space-y-2 p-4">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h3 class="font-medium text-wz-fg">{{ s.name }}</h3>
+                        <Badge v-if="s.status" tone="neutral">{{ statusLabel(s.status) }}</Badge>
+                    </div>
+                    <p class="text-sm text-wz-fg-muted">
+                        {{ s.owner?.name }} · {{ s.location }}
+                    </p>
+                    <p class="text-sm text-wz-fg">
+                        {{ s.capacity }} · $ {{ Number(s.price_per_hour).toFixed(2) }}/h
+                    </p>
+                    <Link :href="route('admin.workspaces.edit', s.id)">
+                        <Button size="sm" variant="secondary">{{ t('common.edit') }}</Button>
+                    </Link>
+                </article>
+            </div>
+
+            <div class="wz-surface hidden overflow-x-auto md:block">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-wz-muted text-wz-fg-muted">
+                        <tr>
+                            <th class="px-3 py-2 text-start">#</th>
+                            <th class="px-3 py-2 text-start">{{ t('bookings.workspace') }}</th>
+                            <th class="px-3 py-2 text-start">{{ t('admin.owner') }}</th>
+                            <th class="px-3 py-2 text-start">{{ t('owner.locationText') }}</th>
+                            <th class="px-3 py-2 text-start">{{ t('owner.capacity') }}</th>
+                            <th class="px-3 py-2 text-start">{{ t('owner.pricePerHour') }}</th>
+                            <th class="px-3 py-2 text-start">{{ t('common.actions') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="s in spaces.data" :key="s.id" class="border-t border-wz-border">
+                            <td class="px-3 py-2 text-wz-fg">{{ s.id }}</td>
+                            <td class="px-3 py-2 font-medium text-wz-fg">{{ s.name }}</td>
+                            <td class="px-3 py-2 text-wz-fg">{{ s.owner?.name }}</td>
+                            <td class="px-3 py-2 text-wz-fg-muted">{{ s.location }}</td>
+                            <td class="px-3 py-2 text-wz-fg">{{ s.capacity }}</td>
+                            <td class="px-3 py-2 text-wz-fg">
+                                $ {{ Number(s.price_per_hour).toFixed(2) }}
+                            </td>
+                            <td class="px-3 py-2">
+                                <Link :href="route('admin.workspaces.edit', s.id)">
+                                    <Button size="sm" variant="secondary">{{ t('common.edit') }}</Button>
+                                </Link>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </template>
+
+        <Pagination :links="spaces.links" />
+    </AppLayout>
 </template>

@@ -1,47 +1,65 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue'
-import { useForm, Link } from '@inertiajs/vue3'
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/Ui/PageHeader.vue';
+import Button from '@/Components/Ui/Button.vue';
+import Select from '@/Components/Ui/Select.vue';
+import Input from '@/Components/Ui/Input.vue';
 
-const props = defineProps({ user: Object })
+const props = defineProps({ user: Object });
+
+const { t } = useI18n();
 
 const form = useForm({
-  name: props.user.name,
-  email: props.user.email,
-  role: props.user.role ?? 'user',
-  password: '',
-  password_confirmation: '',
-})
+    role: props.user.role ?? 'user',
+});
 
 function submit() {
-  form.put(route('admin.users.update', props.user.id))
+    form.put(route('admin.users.update', props.user.id));
 }
 </script>
 
 <template>
-  <AppLayout title="تعديل مستخدم">
-    <div class="max-w-xl mx-auto px-4 py-6">
-      <h1 class="text-xl font-semibold mb-4">تعديل مستخدم</h1>
-      <form @submit.prevent="submit" class="bg-white border rounded p-4 space-y-3">
-        <input v-model="form.name" class="border rounded px-3 py-2 w-full" placeholder="الاسم" />
-        <div class="text-red-600 text-sm" v-if="form.errors.name">{{ form.errors.name }}</div>
+    <AppLayout :title="t('admin.editUser')">
+        <Head :title="t('admin.editUser')" />
 
-        <input v-model="form.email" type="email" class="border rounded px-3 py-2 w-full" placeholder="الإيميل" />
-        <div class="text-red-600 text-sm" v-if="form.errors.email">{{ form.errors.email }}</div>
+        <PageHeader :title="t('admin.editUser')" :subtitle="user.email">
+            <template #actions>
+                <Link :href="route('admin.users.index')">
+                    <Button variant="secondary">{{ t('common.back') }}</Button>
+                </Link>
+            </template>
+        </PageHeader>
 
-        <select v-model="form.role" class="border rounded px-3 py-2 w-full">
-          <option value="user">User</option>
-          <option value="owner">Owner</option>
-          <option value="admin">Admin</option>
-        </select>
+        <form class="wz-surface mx-auto max-w-xl space-y-4 p-5" @submit.prevent="submit">
+            <Input id="admin-user-name" :model-value="user.name" disabled>
+                <template #label>{{ t('admin.name') }}</template>
+            </Input>
+            <Input id="admin-user-email" :model-value="user.email" disabled>
+                <template #label>{{ t('admin.email') }}</template>
+            </Input>
 
-        <input v-model="form.password" type="password" class="border rounded px-3 py-2 w-full" placeholder="(اختياري) كلمة سر جديدة" />
-        <input v-model="form.password_confirmation" type="password" class="border rounded px-3 py-2 w-full" placeholder="تأكيد كلمة السر" />
+            <Select
+                id="admin-user-role"
+                v-model="form.role"
+                :error="form.errors.role"
+                :disabled="form.processing"
+            >
+                <template #label>{{ t('common.role') }}</template>
+                <option value="user">{{ t('admin.roleUser') }}</option>
+                <option value="owner">{{ t('admin.roleOwner') }}</option>
+                <option value="admin">{{ t('admin.roleAdmin') }}</option>
+            </Select>
 
-        <div class="flex items-center gap-3">
-          <button class="bg-gray-900 text-white px-4 py-2 rounded" :disabled="form.processing">تحديث</button>
-          <Link :href="route('admin.users.index')" class="text-slate-600">رجوع</Link>
-        </div>
-      </form>
-    </div>
-  </AppLayout>
+            <div class="flex flex-wrap gap-3">
+                <Button type="submit" variant="primary" :disabled="form.processing">
+                    {{ t('common.save') }}
+                </Button>
+                <Link :href="route('admin.users.index')">
+                    <Button variant="ghost" :disabled="form.processing">{{ t('common.cancel') }}</Button>
+                </Link>
+            </div>
+        </form>
+    </AppLayout>
 </template>
