@@ -49,5 +49,10 @@
   "toast": {
     "success": "Done",
     "error": "Something went wrong"
+  },
+  "pagination": {
+    "label": "Pagination",
+    "previous": "Previous",
+    "next": "Next"
   }
 }

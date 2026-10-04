@@ -1,6 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
-import Pagination from '@/Components/Pagination.vue'
+import Pagination from '@/Components/Ui/Pagination.vue'
 
 const props = defineProps({
   users: Object

@@ -1,6 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
-import Pagination from '@/Components/Pagination.vue'
+import Pagination from '@/Components/Ui/Pagination.vue'
 import { Link, router } from '@inertiajs/vue3'
 import { ref, watch } from 'vue'
 
