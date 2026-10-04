@@ -2,35 +2,36 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Enums\WorkspaceStatus;
 use App\Models\Workspace;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreWorkspaceRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // يربط على WorkspacePolicy@create
         return $this->user()?->can('create', Workspace::class) ?? false;
     }
 
     public function rules(): array
     {
         return [
-            'name'           => ['required','string','max:255'],
-            'location'       => ['required','string','max:255'],
-            'capacity'       => ['required','integer','min:1'],
-            'price_per_hour' => ['required','numeric','min:0'],
-            'image_url'      => ['nullable','url'],
-            'image'          => ['nullable','image','mimes:jpeg,png,jpg,webp','max:2048'],
-        ];
-    }
-
-    public function messages(): array
-    {
-        return [
-            'name.required' => 'اسم المساحة مطلوب',
-            'location.required' => 'الموقع مطلوب',
-            'capacity.min' => 'الحد الأدنى للسعة هو 1',
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:5000'],
+            'location' => ['required', 'string', 'max:255'],
+            'location_id' => ['nullable', 'integer', 'exists:locations,id'],
+            'capacity' => ['required', 'integer', 'min:1'],
+            'price_per_hour' => ['required', 'numeric', 'min:0'],
+            'opening_time' => ['nullable', 'date_format:H:i'],
+            'closing_time' => ['nullable', 'date_format:H:i', 'after:opening_time'],
+            'status' => ['nullable', Rule::enum(WorkspaceStatus::class)],
+            'featured' => ['sometimes', 'boolean'],
+            'amenities' => ['sometimes', 'array'],
+            'amenities.*' => ['integer', 'exists:amenities,id'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
+            'images' => ['sometimes', 'array', 'max:8'],
+            'images.*' => ['image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
         ];
     }
 }

@@ -19,8 +19,9 @@ class WorkspaceController extends Controller
         $q = $request->input('search');
         $spaces = Workspace::when($q, fn ($query) => $query->where(fn ($w) => $w->where('name', 'like', "%{$q}%")
             ->orWhere('location', 'like', "%{$q}%")
+            ->orWhere('description', 'like', "%{$q}%")
         ))
-            ->with('owner:id,name')
+            ->with(['owner:id,name', 'place:id,name,city', 'amenities:id,name'])
             ->latest()->paginate(20)->withQueryString();
 
         return Inertia::render('Admin/Workspaces/Index', compact('spaces'));

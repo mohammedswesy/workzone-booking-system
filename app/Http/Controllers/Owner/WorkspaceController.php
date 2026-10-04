@@ -2,18 +2,22 @@
 
 namespace App\Http\Controllers\Owner;
 
+use App\Enums\WorkspaceStatus;
 use App\Http\Controllers\Controller;
-use App\Models\Workspace;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Inertia\Inertia;
 use App\Http\Requests\StoreWorkspaceRequest;
 use App\Http\Requests\UpdateWorkspaceRequest;
+use App\Models\Amenity;
+use App\Models\Location;
+use App\Models\Workspace;
+use App\Services\Workspaces\WorkspaceGalleryService;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class WorkspaceController extends Controller
 {
-    public function __construct()
-    {
+    public function __construct(
+        private readonly WorkspaceGalleryService $gallery,
+    ) {
         $this->authorizeResource(Workspace::class, 'workspace');
     }
 
@@ -25,73 +29,99 @@ class WorkspaceController extends Controller
 
         $spaces = Workspace::query()
             ->where('owner_id', $owner->id)
-            ->when($q, fn($query) =>
-                $query->where(fn($w)=>
-                    $w->where('name','like',"%{$q}%")
-                      ->orWhere('location','like',"%{$q}%")
-                )
-            )
-            ->select('id','name','location','capacity','price_per_hour','image_url','created_at')
-            ->latest()->paginate($perPage)->withQueryString();
+            ->with([
+                'place:id,name,city',
+                'images' => fn ($img) => $img->orderBy('sort_order')->limit(1),
+                'amenities:id,name',
+            ])
+            ->when($q, fn ($query) => $query->where(fn ($w) => $w->where('name', 'like', "%{$q}%")
+                ->orWhere('location', 'like', "%{$q}%")
+                ->orWhere('description', 'like', "%{$q}%")
+            ))
+            ->latest()
+            ->paginate($perPage)
+            ->withQueryString();
 
         return Inertia::render('Owner/Workspaces/Index', [
-            'spaces'=>$spaces,
-            'filters'=>['search'=>$q,'per_page'=>$perPage],
+            'spaces' => $spaces,
+            'filters' => ['search' => $q, 'per_page' => $perPage],
         ]);
     }
 
     public function create()
     {
-        return Inertia::render('Owner/Workspaces/Create');
+        return Inertia::render('Owner/Workspaces/Create', [
+            'locations' => Location::query()->orderBy('name')->get(['id', 'name', 'city']),
+            'amenities' => Amenity::query()->orderBy('name')->get(['id', 'name', 'slug']),
+        ]);
     }
 
     public function store(StoreWorkspaceRequest $request)
     {
-        $data = $request->validated();
+        $data = collect($request->validated())->except(['image', 'images', 'amenities'])->all();
+        $data['owner_id'] = $request->user()->id;
+        $data['status'] = $data['status'] ?? WorkspaceStatus::Published->value;
 
-        if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('workspaces','public');
-            $data['image_url'] = Storage::url($path);
+        $workspace = Workspace::create($data);
+
+        if ($request->filled('amenities')) {
+            $workspace->amenities()->sync($request->input('amenities', []));
         }
 
-        $data['owner_id'] = $request->user()->id;
-        Workspace::create($data);
+        if ($request->hasFile('image')) {
+            $this->gallery->add($workspace, $request->file('image'), primary: true);
+        }
 
-        return redirect()->route('owner.workspaces.index')->with('success','Workspace created ✅');
+        foreach ($request->file('images', []) as $index => $file) {
+            $this->gallery->add($workspace, $file, primary: ! $request->hasFile('image') && $index === 0);
+        }
+
+        return redirect()->route('owner.workspaces.index')->with('success', 'Workspace created ✅');
     }
 
     public function edit(Workspace $workspace)
     {
+        $workspace->load([
+            'images' => fn ($q) => $q->orderBy('sort_order'),
+            'amenities:id,name',
+            'place:id,name,city',
+        ]);
+
         return Inertia::render('Owner/Workspaces/Edit', [
-            'workspace' => $workspace->only('id','name','location','capacity','price_per_hour','image_url'),
+            'workspace' => $workspace,
+            'locations' => Location::query()->orderBy('name')->get(['id', 'name', 'city']),
+            'amenities' => Amenity::query()->orderBy('name')->get(['id', 'name', 'slug']),
         ]);
     }
 
     public function update(UpdateWorkspaceRequest $request, Workspace $workspace)
     {
-        $data = $request->validated();
-
-        if ($request->hasFile('image')) {
-            if ($workspace->image_url && str_starts_with($workspace->image_url, '/storage/')) {
-                $relative = str_replace('/storage/', '', $workspace->image_url);
-                Storage::disk('public')->delete($relative);
-            }
-            $path = $request->file('image')->store('workspaces','public');
-            $data['image_url'] = Storage::url($path);
-        }
-
+        $data = collect($request->validated())->except(['image', 'images', 'amenities'])->all();
         $workspace->update($data);
 
-        return redirect()->route('owner.workspaces.index')->with('success','Workspace updated ✅');
+        if ($request->has('amenities')) {
+            $workspace->amenities()->sync($request->input('amenities', []));
+        }
+
+        if ($request->hasFile('image')) {
+            $this->gallery->add($workspace, $request->file('image'), primary: true);
+        }
+
+        foreach ($request->file('images', []) as $file) {
+            $this->gallery->add($workspace, $file);
+        }
+
+        return redirect()->route('owner.workspaces.index')->with('success', 'Workspace updated ✅');
     }
 
     public function destroy(Workspace $workspace)
     {
-        if ($workspace->image_url && str_starts_with($workspace->image_url, '/storage/')) {
-            $relative = str_replace('/storage/','',$workspace->image_url);
-            Storage::disk('public')->delete($relative);
+        foreach ($workspace->images as $image) {
+            $this->gallery->delete($image);
         }
+
         $workspace->delete();
-        return back()->with('success','Workspace deleted 🗑️');
+
+        return back()->with('success', 'Workspace deleted 🗑️');
     }
 }

@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers\User;
 
+use App\Enums\BookingStatus;
+use App\Filters\WorkspaceFilter;
 use App\Http\Controllers\Controller;
+use App\Models\Amenity;
 use App\Models\Booking;
+use App\Models\Location;
 use App\Models\Workspace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,25 +15,28 @@ use Inertia\Inertia;
 
 class WorkspaceController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, WorkspaceFilter $filter)
     {
-        $q = $request->input('search');
-        $perPage = (int) ($request->input('per_page') ?? 12);
+        $query = Workspace::query()
+            ->with([
+                'activeOffers',
+                'place:id,name,city',
+                'amenities:id,name,slug',
+                'images' => fn ($q) => $q->orderBy('sort_order')->limit(1),
+            ]);
 
-        $spaces = Workspace::query()
-            ->when($q, fn ($query) => $query->where(fn ($w) => $w->where('name', 'like', "%{$q}%")
-                ->orWhere('location', 'like', "%{$q}%")
-            )
-            )
-            ->with('activeOffers') // مهم لعدم تكرار الاستعلامات
-            ->select('id', 'name', 'location', 'capacity', 'price_per_hour', 'image_url', 'owner_id')
+        $filter->apply($query);
+
+        $spaces = $query
             ->latest()
-            ->paginate($perPage)
+            ->paginate($filter->values()['per_page'])
             ->withQueryString();
 
         return Inertia::render('User/Workspaces/Index', [
-            'spaces' => $spaces, // يحتوي على appends تلقائيًا
-            'filters' => ['search' => $q, 'per_page' => $perPage],
+            'spaces' => $spaces,
+            'filters' => $filter->values(),
+            'locations' => Location::query()->orderBy('name')->get(['id', 'name', 'city']),
+            'amenities' => Amenity::query()->orderBy('name')->get(['id', 'name', 'slug']),
         ]);
     }
 
@@ -37,27 +44,24 @@ class WorkspaceController extends Controller
     {
         $user = Auth::user();
 
-        $workspace->load('activeOffers');
+        $workspace->load([
+            'activeOffers',
+            'place',
+            'amenities:id,name,slug,icon',
+            'images' => fn ($q) => $q->orderBy('sort_order'),
+            'owner:id,name',
+        ]);
 
         $pendingBookingId = null;
         if ($user) {
             $pendingBookingId = Booking::where('user_id', $user->id)
                 ->where('workspace_id', $workspace->id)
-                ->where('status', \App\Enums\BookingStatus::Pending)
+                ->where('status', BookingStatus::Pending)
                 ->value('id');
         }
 
-        // خذ الحقول الأساسية… والقيم المحسوبة ستأتي تلقائيًا بفضل $appends
-        $data = $workspace->only([
-            'id', 'name', 'location', 'capacity', 'price_per_hour', 'image_url', 'created_at', 'owner_id',
-        ]);
-        // (اختياري) ضامن لو حابب تتأكد
-        $data['active_discount_percent'] = $workspace->active_discount_percent;
-        $data['effective_price_per_hour'] = $workspace->effective_price_per_hour;
-        $data['offer_label'] = $workspace->offer_label;
-
         return Inertia::render('User/Workspaces/Show', [
-            'workspace' => $data,
+            'workspace' => $workspace,
             'can_book' => (bool) $user,
             'pending_booking_id' => $pendingBookingId,
         ]);
