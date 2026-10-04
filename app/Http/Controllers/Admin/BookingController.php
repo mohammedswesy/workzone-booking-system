@@ -2,11 +2,9 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateBookingStatusRequest;
 use App\Models\Booking;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class BookingController extends Controller
@@ -32,18 +30,14 @@ class BookingController extends Controller
 
     public function edit(Booking $booking)
     {
-        $booking->load(['workspace:id,name', 'user:id,name,email']);
-
-        return Inertia::render('Admin/Bookings/Show', compact('booking'));
+        return $this->show($booking);
     }
 
-    public function update(Request $request, Booking $booking)
+    public function update(UpdateBookingStatusRequest $request, Booking $booking)
     {
-        $data = $request->validate([
-            'status' => ['required', Rule::enum(BookingStatus::class)],
+        $booking->update([
+            'status' => $request->validated('status'),
         ]);
-
-        $booking->update($data);
 
         return back()->with('success', 'تم التحديث.');
     }

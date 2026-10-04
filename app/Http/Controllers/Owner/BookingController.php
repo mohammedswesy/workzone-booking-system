@@ -4,17 +4,13 @@ namespace App\Http\Controllers\Owner;
 
 use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateBookingStatusRequest;
 use App\Models\Booking;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class BookingController extends Controller
 {
-    /**
-     * قائمة حجوزات مساحات المالك مع فلاتر وباجينيشن.
-     * route: owner.bookings.index
-     */
     public function index(Request $request)
     {
         $owner = $request->user();
@@ -25,7 +21,6 @@ class BookingController extends Controller
         $this->authorize('viewAny', Booking::class);
 
         $query = Booking::query()
-            // حجوزات المساحات التي يملكها هذا المالك
             ->whereHas('workspace', fn ($w) => $w->where('owner_id', $owner->id))
             ->with([
                 'workspace:id,name',
@@ -53,10 +48,6 @@ class BookingController extends Controller
         ]);
     }
 
-    /**
-     * عرض تفاصيل حجز.
-     * route: owner.bookings.show
-     */
     public function show(Request $request, Booking $booking)
     {
         $this->authorize('view', $booking);
@@ -71,10 +62,6 @@ class BookingController extends Controller
         ]);
     }
 
-    /**
-     * شاشة تعديل (اختياري – لو بدك تستخدمها).
-     * route: owner.bookings.edit
-     */
     public function edit(Request $request, Booking $booking)
     {
         $this->authorize('update', $booking);
@@ -86,30 +73,22 @@ class BookingController extends Controller
 
         return Inertia::render('Owner/Bookings/Edit', [
             'booking' => $booking,
-            'statuses' => BookingStatus::values(),
+            'statuses' => [
+                BookingStatus::Confirmed->value,
+                BookingStatus::Cancelled->value,
+            ],
         ]);
     }
 
-    /**
-     * تحديث حالة الحجز (status فقط — لا hours/price من المالك).
-     */
-    public function update(Request $request, Booking $booking)
+    public function update(UpdateBookingStatusRequest $request, Booking $booking)
     {
-        $this->authorize('update', $booking);
-
-        $data = $request->validate([
-            'status' => ['required', Rule::enum(BookingStatus::class)],
+        $booking->update([
+            'status' => $request->validated('status'),
         ]);
-
-        $booking->update(['status' => $data['status']]);
 
         return back()->with('success', 'تم تحديث حالة الحجز.');
     }
 
-    /**
-     * حذف حجز (اختياري).
-     * route: owner.bookings.destroy
-     */
     public function destroy(Request $request, Booking $booking)
     {
         $this->authorize('delete', $booking);

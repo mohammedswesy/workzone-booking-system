@@ -4,7 +4,7 @@ import { useForm, Link } from '@inertiajs/vue3'
 
 const props = defineProps({
   booking: { type: Object, required: true },
-  statuses: { type: Array, default: () => ['pending','paid','cancelled'] }
+  statuses: { type: Array, default: () => ['confirmed', 'cancelled'] }
 })
 
 const form = useForm({

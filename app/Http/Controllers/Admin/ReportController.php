@@ -14,22 +14,22 @@ class ReportController extends Controller
 {
     public function index(Request $request)
     {
-        $from   = $request->date('from');
-        $to     = $request->date('to');
+        $from = $request->date('from');
+        $to = $request->date('to');
         $status = $request->string('status')->toString(); // '', pending, paid, cancelled
 
         $bookings = Booking::query()
-            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
-            ->when($to,   fn($q) => $q->whereDate('created_at', '<=', $to))
-            ->when($status, fn($q) => $q->where('status', $status));
+            ->when($from, fn ($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('created_at', '<=', $to))
+            ->when($status, fn ($q) => $q->where('status', $status));
 
         // KPIs
         $kpis = [
-            'users'      => User::count(),
-            'owners'     => User::where('role','owner')->count(),
+            'users' => User::count(),
+            'owners' => User::where('role', 'owner')->count(),
             'workspaces' => Workspace::count(),
-            'bookings'   => (clone $bookings)->count(),
-            'revenue'    => (clone $bookings)->where('status','paid')->sum('total_price'),
+            'bookings' => (clone $bookings)->count(),
+            'revenue' => (clone $bookings)->where('payment_status', 'paid')->sum('total_price'),
         ];
 
         // أعلى المساحات حجزًا
@@ -40,11 +40,11 @@ class ReportController extends Controller
             ->with('workspace:id,name')
             ->take(10)
             ->get()
-            ->map(fn($r) => [
-                'id'    => $r->workspace_id,
-                'name'  => $r->workspace?->name ?? '—',
+            ->map(fn ($r) => [
+                'id' => $r->workspace_id,
+                'name' => $r->workspace?->name ?? '—',
                 'count' => (int) $r->cnt,
-                'sum'   => (float) $r->sum,
+                'sum' => (float) $r->sum,
             ]);
 
         // سلسلة زمنية (حجوزات/يوم)
@@ -55,12 +55,12 @@ class ReportController extends Controller
 
         return Inertia::render('Admin/Reports/Index', [
             'filters' => [
-                'from'   => $from?->toDateString(),
-                'to'     => $to?->toDateString(),
+                'from' => $from?->toDateString(),
+                'to' => $to?->toDateString(),
                 'status' => $status,
             ],
-            'kpis'          => $kpis,
-            'series'        => $series,
+            'kpis' => $kpis,
+            'series' => $series,
             'topWorkspaces' => $topWorkspaces,
         ]);
     }

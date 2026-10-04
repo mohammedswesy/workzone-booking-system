@@ -9,7 +9,7 @@ const props = defineProps({
   filters: {
     type: Object,
     default: () => ({
-      status: '',       // '', 'pending', 'paid', 'cancelled'
+      status: '',       // '', 'pending', 'confirmed', 'cancelled'
       search: '',       // by user/workspace
       per_page: 12
     })
@@ -81,10 +81,10 @@ const hasData = computed(() => props.bookings?.data?.length)
         </button>
         <button
           class="px-3 py-1 rounded border"
-          :class="form.status === 'paid' ? 'bg-gray-900 text-white' : 'hover:bg-gray-50'"
-          @click="form.status='paid'; applyFilters()"
+          :class="form.status === 'confirmed' ? 'bg-gray-900 text-white' : 'hover:bg-gray-50'"
+          @click="form.status='confirmed'; applyFilters()"
         >
-          مدفوع
+          مؤكد
         </button>
         <button
           class="px-3 py-1 rounded border"
@@ -130,7 +130,7 @@ const hasData = computed(() => props.bookings?.data?.length)
                   class="px-2 py-1 rounded text-xs"
                   :class="{
                     'bg-yellow-100 text-yellow-700': b.status === 'pending',
-                    'bg-green-100 text-green-700': b.status === 'paid',
+                    'bg-green-100 text-green-700': b.status === 'confirmed',
                     'bg-gray-100 text-gray-700': b.status === 'cancelled'
                   }"
                 >
@@ -143,9 +143,9 @@ const hasData = computed(() => props.bookings?.data?.length)
                   <button
                     v-if="b.status === 'pending'"
                     class="px-2 py-1 border rounded text-green-700 hover:bg-green-50"
-                    @click="updateStatus(b.id, 'paid')"
+                    @click="updateStatus(b.id, 'confirmed')"
                   >
-                    إتمام الدفع
+                    تأكيد
                   </button>
                   <button
                     v-if="b.status !== 'cancelled'"

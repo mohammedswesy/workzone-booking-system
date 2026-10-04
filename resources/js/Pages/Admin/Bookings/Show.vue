@@ -19,10 +19,12 @@ function setStatus(s){ router.put(route('admin.bookings.update', props.booking.i
         <div><div class="text-slate-500 text-sm">الساعات</div><div class="font-medium">{{ booking.hours }}</div></div>
         <div><div class="text-slate-500 text-sm">الإجمالي</div><div class="font-medium">$ {{ Number(booking.total_price ?? 0).toFixed(2) }}</div></div>
         <div><div class="text-slate-500 text-sm">الحالة</div><div class="font-medium">{{ booking.status }}</div></div>
+        <div><div class="text-slate-500 text-sm">الدفع</div><div class="font-medium">{{ booking.payment_status }}</div></div>
       </div>
 
       <div class="flex gap-2">
-        <button class="px-3 py-2 border rounded hover:bg-gray-50" @click="setStatus('paid')">تحديد كمدفوع</button>
+        <button class="px-3 py-2 border rounded hover:bg-gray-50" @click="setStatus('confirmed')">تأكيد</button>
+        <button class="px-3 py-2 border rounded hover:bg-gray-50" @click="setStatus('completed')">إكمال</button>
         <button class="px-3 py-2 border rounded text-red-600 hover:bg-red-50" @click="setStatus('cancelled')">إلغاء</button>
       </div>
     </div>

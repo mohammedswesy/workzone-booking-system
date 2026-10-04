@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\BookingStatus;
-use App\Enums\Role;
+use App\Enums\PaymentStatus;
 use App\Models\Booking;
 use App\Models\User;
 use App\Models\Workspace;
@@ -18,17 +18,20 @@ class BookingFactory extends Factory
 
     public function definition(): array
     {
-        $hours = $this->faker->numberBetween(1, 8);
-        $workspace = Workspace::inRandomOrder()->first() ?? Workspace::factory()->create();
-        $user = User::where('role', Role::User)->inRandomOrder()->first()
-            ?? User::factory()->userRole()->create();
+        $hours = $this->faker->numberBetween(1, 4);
+        $workspace = Workspace::factory()->create();
+        $user = User::factory()->userRole()->create();
+        $start = now()->addDay()->setTime(10, 0);
 
         return [
             'user_id' => $user->id,
             'workspace_id' => $workspace->id,
+            'start_at' => $start,
+            'end_at' => $start->copy()->addHours($hours),
             'hours' => $hours,
             'total_price' => $workspace->price_per_hour * $hours,
-            'status' => $this->faker->randomElement(BookingStatus::cases()),
+            'status' => BookingStatus::Pending,
+            'payment_status' => PaymentStatus::Unpaid,
         ];
     }
 }

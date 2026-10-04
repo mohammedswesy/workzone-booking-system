@@ -2,25 +2,28 @@
 
 namespace App\Http\Controllers\User;
 
-use App\Enums\BookingStatus;
+use App\Actions\Bookings\CreateBooking;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreBookingRequest;
+use App\Http\Requests\UpdateBookingRequest;
 use App\Models\Booking;
 use App\Models\Workspace;
+use App\Services\Pricing\BookingPricingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class BookingController extends Controller
 {
-    public function __construct()
-    {
-        // تأكد عندك BookingPolicy
+    public function __construct(
+        private readonly BookingPricingService $pricing,
+        private readonly CreateBooking $createBooking,
+    ) {
         $this->authorizeResource(Booking::class, 'booking');
     }
 
-    /**
-     * قائمة حجوزات المستخدم
-     */
     public function index(Request $request)
     {
         $query = Booking::query()
@@ -44,71 +47,33 @@ class BookingController extends Controller
         ]);
     }
 
-    /**
-     * تفاصيل حجز واحد
-     */
     public function show(Booking $booking)
     {
         $booking->load(['workspace:id,name,location,price_per_hour']);
 
-        // احسب السعر الفعّال (للعرض فقط)
-        $effective = $this->effectivePricePerHour($booking->workspace);
-
         return Inertia::render('User/Bookings/Show', [
-            'booking' => [
-                'id' => $booking->id,
-                'hours' => $booking->hours,
-                'status' => $booking->status,
-                'total_price' => $booking->total_price,
-                'created_at' => $booking->created_at,
-                'workspace' => [
-                    'id' => $booking->workspace->id,
-                    'name' => $booking->workspace->name,
-                    'location' => $booking->workspace->location,
-                    'price_per_hour' => (float) $booking->workspace->price_per_hour,
-                    'effective_price_per_hour' => $effective['price'],
-                    'active_discount_percent' => $effective['discount'],
-                ],
-            ],
+            'booking' => $booking,
         ]);
     }
 
-    /**
-     * شاشة إنشاء حجز
-     */
     public function create(Request $request)
     {
         $workspaceId = $request->integer('workspace_id');
 
-        // نحضّر قائمة المساحات مع السعر الفعّال
-        $workspaces = Workspace::select('id', 'name', 'price_per_hour')
+        $workspaces = Workspace::query()
+            ->with('activeOffers')
+            ->select('id', 'name', 'price_per_hour', 'opening_time', 'closing_time', 'location')
             ->orderBy('name')
             ->get()
-            ->map(function ($ws) {
-                $eff = $this->effectivePricePerHour($ws);
-
-                return [
-                    'id' => $ws->id,
-                    'name' => $ws->name,
-                    'price_per_hour' => (float) $ws->price_per_hour,
-                    'effective_price_per_hour' => $eff['price'],
-                    'active_discount_percent' => $eff['discount'],
-                ];
-            });
+            ->map(fn (Workspace $ws) => $this->workspacePayload($ws));
 
         $workspace = null;
         if ($workspaceId) {
-            $ws = Workspace::select('id', 'name', 'price_per_hour', 'location')->find($workspaceId);
+            $ws = Workspace::with('activeOffers')
+                ->select('id', 'name', 'price_per_hour', 'opening_time', 'closing_time', 'location')
+                ->find($workspaceId);
             if ($ws) {
-                $eff = $this->effectivePricePerHour($ws);
-                $workspace = [
-                    'id' => $ws->id,
-                    'name' => $ws->name,
-                    'location' => $ws->location,
-                    'price_per_hour' => (float) $ws->price_per_hour,
-                    'effective_price_per_hour' => $eff['price'],
-                    'active_discount_percent' => $eff['discount'],
-                ];
+                $workspace = $this->workspacePayload($ws);
             }
         }
 
@@ -119,63 +84,30 @@ class BookingController extends Controller
         ]);
     }
 
-    /**
-     * حفظ حجز جديد
-     */
-    public function store(Request $request)
+    public function store(StoreBookingRequest $request)
     {
-        $data = $request->validate([
-            'workspace_id' => ['required', 'integer', 'exists:workspaces,id'],
-            'hours' => ['required', 'integer', 'min:1'],
-        ]);
-
-        // منع وجود حجز pending لنفس المساحة للمستخدم نفسه
-        $exists = Booking::where('user_id', Auth::id())
-            ->where('workspace_id', $data['workspace_id'])
-            ->where('status', BookingStatus::Pending)
-            ->exists();
-
-        if ($exists) {
-            return back()
-                ->withErrors(['workspace_id' => 'لديك حجز معلق لهذه المساحة.'])
-                ->withInput();
-        }
-
+        $data = $request->validated();
         $workspace = Workspace::findOrFail($data['workspace_id']);
-        $effective = $this->effectivePricePerHour($workspace); // السعر بعد الخصم
 
-        Booking::create([
-            'user_id' => Auth::id(),
-            'workspace_id' => $workspace->id,
-            'hours' => $data['hours'],
-            'total_price' => $effective['price'] * $data['hours'],
-            'status' => BookingStatus::Pending,
-        ]);
+        $this->createBooking->handle(
+            $request->user(),
+            $workspace,
+            Carbon::parse($data['start_at']),
+            Carbon::parse($data['end_at']),
+        );
 
         return redirect()->route('user.bookings.index')->with('success', 'تم إنشاء الحجز.');
     }
 
-    /**
-     * شاشة تعديل الحجز
-     */
     public function edit(Booking $booking)
     {
-        $booking->load(['workspace:id,name,price_per_hour']);
+        $booking->load(['workspace:id,name,price_per_hour,opening_time,closing_time']);
 
-        $workspaces = Workspace::select('id', 'name', 'price_per_hour')
+        $workspaces = Workspace::with('activeOffers')
+            ->select('id', 'name', 'price_per_hour', 'opening_time', 'closing_time')
             ->orderBy('name')
             ->get()
-            ->map(function ($ws) {
-                $eff = $this->effectivePricePerHour($ws);
-
-                return [
-                    'id' => $ws->id,
-                    'name' => $ws->name,
-                    'price_per_hour' => (float) $ws->price_per_hour,
-                    'effective_price_per_hour' => $eff['price'],
-                    'active_discount_percent' => $eff['discount'],
-                ];
-            });
+            ->map(fn (Workspace $ws) => $this->workspacePayload($ws));
 
         return Inertia::render('User/Bookings/Edit', [
             'booking' => $booking,
@@ -183,31 +115,44 @@ class BookingController extends Controller
         ]);
     }
 
-    /**
-     * تحديث الحجز
-     */
-    public function update(Request $request, Booking $booking)
+    public function update(UpdateBookingRequest $request, Booking $booking)
     {
-        $data = $request->validate([
-            'workspace_id' => ['required', 'integer', 'exists:workspaces,id'],
-            'hours' => ['required', 'integer', 'min:1'],
-        ]);
+        $data = $request->validated();
 
-        $workspace = Workspace::findOrFail($data['workspace_id']);
-        $effective = $this->effectivePricePerHour($workspace);
+        DB::transaction(function () use ($booking, $data) {
+            $workspace = Workspace::whereKey($data['workspace_id'])->lockForUpdate()->firstOrFail();
+            $start = Carbon::parse($data['start_at'])->seconds(0);
+            $end = Carbon::parse($data['end_at'])->seconds(0);
 
-        $booking->update([
-            'workspace_id' => $workspace->id,
-            'hours' => $data['hours'],
-            'total_price' => $effective['price'] * $data['hours'],
-        ]);
+            $overlap = Booking::query()
+                ->where('workspace_id', $workspace->id)
+                ->whereKeyNot($booking->id)
+                ->whereIn('status', \App\Enums\BookingStatus::blocking())
+                ->where('start_at', '<', $end)
+                ->where('end_at', '>', $start)
+                ->lockForUpdate()
+                ->exists();
+
+            if ($overlap) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'start_at' => 'This workspace is already booked for the selected time range.',
+                ]);
+            }
+
+            $quote = $this->pricing->quote($workspace, $start, $end);
+
+            $booking->update([
+                'workspace_id' => $workspace->id,
+                'start_at' => $start,
+                'end_at' => $end,
+                'hours' => (int) max(1, (int) ceil((float) $quote->hours)),
+                'total_price' => $quote->finalAmount,
+            ]);
+        });
 
         return redirect()->route('user.bookings.index')->with('success', 'تم التحديث.');
     }
 
-    /**
-     * حذف الحجز
-     */
     public function destroy(Booking $booking)
     {
         $booking->delete();
@@ -218,31 +163,23 @@ class BookingController extends Controller
     }
 
     /**
-     * احسب السعر الفعّال حسب أعلى خصم فعّال على المساحة
-     * يتطلب وجود علاقة offers() في Workspace
+     * @return array<string, mixed>
      */
-    private function effectivePricePerHour(Workspace $workspace): array
+    private function workspacePayload(Workspace $ws): array
     {
-        $now = now();
+        $start = now()->addHour()->seconds(0);
+        $end = $start->copy()->addHour();
+        $quote = $this->pricing->quote($ws, $start, $end);
 
-        // لو العلاقة مش محمّلة، حمّل العروض الفعّالة فقط
-        if (! $workspace->relationLoaded('offers')) {
-            $workspace->load(['offers' => function ($q) use ($now) {
-                $q->select('workspace_id', 'discount_percent', 'is_active', 'starts_at', 'ends_at')
-                    ->where('is_active', true)
-                    ->where(function ($w) use ($now) {
-                        $w->whereNull('starts_at')->orWhere('starts_at', '<=', $now);
-                    })
-                    ->where(function ($w) use ($now) {
-                        $w->whereNull('ends_at')->orWhere('ends_at', '>=', $now);
-                    });
-            }]);
-        }
-
-        $base = (float) $workspace->price_per_hour;
-        $discount = (int) ($workspace->offers->max('discount_percent') ?? 0);
-        $price = $discount > 0 ? round($base * (1 - $discount / 100), 2) : $base;
-
-        return ['price' => $price, 'discount' => $discount];
+        return [
+            'id' => $ws->id,
+            'name' => $ws->name,
+            'location' => $ws->location,
+            'price_per_hour' => $quote->pricePerHour,
+            'effective_price_per_hour' => $quote->finalAmount,
+            'active_discount_percent' => $quote->discountPercent,
+            'opening_time' => $ws->opening_time,
+            'closing_time' => $ws->closing_time,
+        ];
     }
 }

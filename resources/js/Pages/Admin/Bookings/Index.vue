@@ -39,7 +39,7 @@ function updateStatus(id, status) {
             <td class="px-3 py-2">{{ b.total_price }}</td>
             <td class="px-3 py-2">{{ b.status }}</td>
             <td class="px-3 py-2 text-right space-x-2">
-              <button @click="updateStatus(b.id, 'paid')" class="px-2 py-1 text-xs rounded bg-green-600 text-white">Mark Paid</button>
+              <button @click="updateStatus(b.id, 'confirmed')" class="px-2 py-1 text-xs rounded bg-green-600 text-white">Confirm</button>
               <button @click="updateStatus(b.id, 'cancelled')" class="px-2 py-1 text-xs rounded bg-red-600 text-white">Cancel</button>
             </td>
           </tr>

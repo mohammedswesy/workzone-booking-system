@@ -2,65 +2,94 @@
 
 namespace App\Models;
 
+use App\Services\Offers\ActiveOfferResolver;
+use App\Services\Pricing\BookingPricingService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 class Workspace extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['owner_id','name','location','capacity','price_per_hour','image_url'];
+    protected $fillable = [
+        'owner_id',
+        'name',
+        'location',
+        'capacity',
+        'price_per_hour',
+        'opening_time',
+        'closing_time',
+        'image_url',
+    ];
 
-    // نخلي القيم المحسوبة ترجع تلقائيًا في JSON/Array
     protected $appends = ['active_discount_percent', 'effective_price_per_hour', 'offer_label'];
 
-    public function bookings()
+    protected function casts(): array
+    {
+        return [
+            'capacity' => 'integer',
+            'price_per_hour' => 'decimal:2',
+        ];
+    }
+
+    public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
     }
 
-    public function owner()
+    public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_id');
     }
 
-    public function offers()
+    public function offers(): HasMany
     {
-        return $this->hasMany(\App\Models\Offer::class);
+        return $this->hasMany(Offer::class);
     }
 
-    public function activeOffers()
+    public function activeOffers(): HasMany
     {
-        return $this->hasMany(\App\Models\Offer::class)->active();
+        return $this->hasMany(Offer::class)->active();
     }
 
     public function getActiveDiscountPercentAttribute(): int
     {
-        if ($this->relationLoaded('activeOffers')) {
-            return (int) ($this->activeOffers->max('discount_percent') ?? 0);
-        }
+        $offer = app(ActiveOfferResolver::class)->for($this);
 
-        return (int) ($this->activeOffers()->max('discount_percent') ?? 0);
+        return (int) ($offer?->discount_percent ?? 0);
     }
 
-    /**
-     * السعر الفعلي بعد تطبيق أعلى خصم.
-     */
     public function getEffectivePricePerHourAttribute(): float
     {
-        $d = $this->active_discount_percent ?? $this->getActiveDiscountPercentAttribute();
+        $start = now();
+        $end = $start->copy()->addHour();
 
-        if ($d > 0) {
-            return round($this->price_per_hour * (1 - ($d / 100)), 2);
+        try {
+            $quote = app(BookingPricingService::class)->quote($this, $start, $end);
+
+            return (float) $quote->finalAmount;
+        } catch (\Throwable) {
+            return (float) $this->price_per_hour;
         }
-
-        return (float) $this->price_per_hour;
     }
 
-    // ليبل لطيف يظهر في الواجهة (اختياري)
     public function getOfferLabelAttribute(): ?string
     {
-        $d = $this->active_discount_percent ?? 0;
-        return $d > 0 ? ('خصم ' . $d . '%') : null;
+        $d = $this->active_discount_percent;
+
+        return $d > 0 ? ('خصم '.$d.'%') : null;
+    }
+
+    public function openingCarbonOn(Carbon $day): Carbon
+    {
+        return Carbon::parse($day->toDateString().' '.$this->opening_time);
+    }
+
+    public function closingCarbonOn(Carbon $day): Carbon
+    {
+        return Carbon::parse($day->toDateString().' '.$this->closing_time);
     }
 }

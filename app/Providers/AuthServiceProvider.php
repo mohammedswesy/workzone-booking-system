@@ -2,36 +2,24 @@
 
 namespace App\Providers;
 
-use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
-
-// موديلاتك
-use App\Models\Workspace;
 use App\Models\Booking;
-
-// السياسات
-use App\Policies\WorkspacePolicy;
+use App\Models\Offer;
+use App\Models\Workspace;
 use App\Policies\BookingPolicy;
+use App\Policies\OfferPolicy;
+use App\Policies\WorkspacePolicy;
+use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
 class AuthServiceProvider extends ServiceProvider
 {
-    /**
-     * The policy mappings for the application.
-     *
-     * @var array<class-string, class-string>
-     */
     protected $policies = [
         Workspace::class => WorkspacePolicy::class,
-        Booking::class   => BookingPolicy::class,
+        Booking::class => BookingPolicy::class,
+        Offer::class => OfferPolicy::class,
     ];
 
-    /**
-     * Register any authentication / authorization services.
-     */
     public function boot(): void
     {
         $this->registerPolicies();
-
-        // لو عندك Gates مخصصة ممكن تضيفها هون
-        // Gate::define('something', fn(User $user) => ...);
     }
 }
