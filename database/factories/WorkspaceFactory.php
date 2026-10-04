@@ -32,6 +32,8 @@ class WorkspaceFactory extends Factory
             'image_url' => $this->faker->imageUrl(640, 480, 'business', true),
             'status' => WorkspaceStatus::Published,
             'featured' => false,
+            'payment_instructions' => "Bank transfer to owner account.\nIBAN: PS00 EXAMPLE 0000 0000\nMention booking ID in the note.",
+            'payment_methods' => ['bank_transfer', 'wallet', 'cash'],
             'owner_id' => User::factory()->owner(),
         ];
     }

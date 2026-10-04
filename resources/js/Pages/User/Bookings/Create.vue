@@ -1,111 +1,145 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue'
-import { Link, useForm, usePage } from '@inertiajs/vue3'
-import { computed } from 'vue'
+import { computed } from 'vue';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/Ui/PageHeader.vue';
+import Button from '@/Components/Ui/Button.vue';
+import Select from '@/Components/Ui/Select.vue';
+import Input from '@/Components/Ui/Input.vue';
 
-const page = usePage()
-const workspace = page.props?.workspace ?? null
-const workspaces = page.props?.workspaces ?? []
+const page = usePage();
+const { t } = useI18n();
+
+const workspace = page.props?.workspace ?? null;
+const workspaces = page.props?.workspaces ?? [];
 
 function defaultStart() {
-  const d = new Date()
-  d.setMinutes(0, 0, 0)
-  d.setHours(d.getHours() + 1)
-  return toLocalInput(d)
+    const d = new Date();
+    d.setMinutes(0, 0, 0);
+    d.setHours(d.getHours() + 1);
+    return toLocalInput(d);
 }
 
 function defaultEnd() {
-  const d = new Date()
-  d.setMinutes(0, 0, 0)
-  d.setHours(d.getHours() + 2)
-  return toLocalInput(d)
+    const d = new Date();
+    d.setMinutes(0, 0, 0);
+    d.setHours(d.getHours() + 2);
+    return toLocalInput(d);
 }
 
 function toLocalInput(date) {
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 const form = useForm({
-  workspace_id: workspace?.id ?? null,
-  start_at: defaultStart(),
-  end_at: defaultEnd(),
-})
+    workspace_id: workspace?.id ?? null,
+    start_at: defaultStart(),
+    end_at: defaultEnd(),
+});
 
 const selected = computed(() => {
-  if (workspace && workspace.id === form.workspace_id) return workspace
-  return workspaces.find((w) => w.id === form.workspace_id) ?? workspace
-})
+    if (workspace && workspace.id === form.workspace_id) return workspace;
+    return workspaces.find((w) => w.id === form.workspace_id) ?? workspace;
+});
 
 const hours = computed(() => {
-  if (!form.start_at || !form.end_at) return 0
-  const ms = new Date(form.end_at) - new Date(form.start_at)
-  return ms > 0 ? ms / 3600000 : 0
-})
+    if (!form.start_at || !form.end_at) return 0;
+    const ms = new Date(form.end_at) - new Date(form.start_at);
+    return ms > 0 ? ms / 3600000 : 0;
+});
 
 const total = computed(() => {
-  const rate = Number(selected.value?.effective_price_per_hour ?? selected.value?.price_per_hour ?? 0)
-  return (rate * hours.value).toFixed(2)
-})
+    const rate = Number(selected.value?.effective_price_per_hour ?? selected.value?.price_per_hour ?? 0);
+    return (rate * hours.value).toFixed(2);
+});
 
 function submit() {
-  form.post(route('user.bookings.store'), { preserveScroll: true })
+    form.post(route('user.bookings.store'), { preserveScroll: true });
 }
 </script>
 
 <template>
-  <AppLayout title="Create Booking">
-    <div class="max-w-3xl mx-auto p-4 space-y-6">
-      <h1 class="text-xl font-semibold">Create Booking</h1>
+    <AppLayout :title="t('bookings.createTitle')">
+        <Head :title="t('bookings.createTitle')" />
 
-      <form @submit.prevent="submit" class="border rounded-xl p-4 space-y-3 bg-white">
-        <label class="grid gap-1">
-          <span class="text-sm text-gray-600">Workspace</span>
-          <select v-model.number="form.workspace_id" class="border rounded px-3 py-2" required>
-            <option :value="null" disabled>Select a workspace</option>
-            <option v-for="w in workspaces" :key="w.id" :value="w.id">
-              {{ w.name }} — ${{ Number(w.effective_price_per_hour ?? w.price_per_hour).toFixed(2) }}/h
-            </option>
-          </select>
-        </label>
+        <PageHeader :title="t('bookings.createTitle')" :subtitle="t('bookings.subtitle')">
+            <template #actions>
+                <Link :href="route('spaces.index')">
+                    <Button variant="secondary">{{ t('common.back') }}</Button>
+                </Link>
+            </template>
+        </PageHeader>
 
-        <div class="grid md:grid-cols-2 gap-3">
-          <label class="grid gap-1">
-            <span class="text-sm text-gray-600">Start</span>
-            <input v-model="form.start_at" type="datetime-local" class="border rounded px-3 py-2" required />
-          </label>
-          <label class="grid gap-1">
-            <span class="text-sm text-gray-600">End</span>
-            <input v-model="form.end_at" type="datetime-local" class="border rounded px-3 py-2" required />
-          </label>
-        </div>
+        <form class="wz-surface mx-auto max-w-2xl space-y-4 p-5" @submit.prevent="submit">
+            <Select
+                id="workspace_id"
+                :model-value="form.workspace_id ?? ''"
+                :error="form.errors.workspace_id"
+                :disabled="form.processing"
+                @update:model-value="form.workspace_id = Number($event) || null"
+            >
+                <template #label>{{ t('bookings.workspace') }}</template>
+                <option value="" disabled>{{ t('bookings.selectWorkspace') }}</option>
+                <option v-for="w in workspaces" :key="w.id" :value="w.id">
+                    {{ w.name }} — ${{ Number(w.effective_price_per_hour ?? w.price_per_hour).toFixed(2) }}/h
+                </option>
+            </Select>
 
-        <p v-if="selected" class="text-sm text-slate-600">
-          Open {{ selected.opening_time }} – {{ selected.closing_time }}
-          <span v-if="selected.active_discount_percent"> · Offer {{ selected.active_discount_percent }}% off</span>
-        </p>
+            <div class="grid gap-3 md:grid-cols-2">
+                <Input
+                    id="start_at"
+                    v-model="form.start_at"
+                    type="datetime-local"
+                    :error="form.errors.start_at"
+                    :disabled="form.processing"
+                >
+                    <template #label>{{ t('bookings.start') }}</template>
+                </Input>
+                <Input
+                    id="end_at"
+                    v-model="form.end_at"
+                    type="datetime-local"
+                    :error="form.errors.end_at"
+                    :disabled="form.processing"
+                >
+                    <template #label>{{ t('bookings.end') }}</template>
+                </Input>
+            </div>
 
-        <div class="text-slate-800">
-          Duration: <span class="font-medium">{{ hours.toFixed(2) }}h</span>
-          · Estimated total:
-          <span class="font-semibold">$ {{ total }}</span>
-        </div>
+            <p v-if="selected" class="text-sm text-wz-fg-muted">
+                {{
+                    t('bookings.openingHours', {
+                        open: selected.opening_time,
+                        close: selected.closing_time,
+                    })
+                }}
+                <span v-if="selected.active_discount_percent">
+                    · {{ t('bookings.offerOff', { n: selected.active_discount_percent }) }}
+                </span>
+            </p>
 
-        <div class="flex items-center gap-3 pt-2">
-          <button
-            type="submit"
-            class="bg-indigo-600 text-white px-4 py-2 rounded disabled:opacity-50"
-            :disabled="form.processing"
-          >
-            Confirm Booking
-          </button>
-          <Link :href="route('spaces.index')" class="px-3 py-2 border rounded hover:bg-gray-50">Back</Link>
-        </div>
+            <div class="rounded-xl bg-wz-muted px-4 py-3 text-sm text-wz-fg">
+                {{ t('bookings.duration') }}:
+                <span class="font-medium">{{ hours.toFixed(2) }}h</span>
+                <span class="mx-2 text-wz-fg-muted">·</span>
+                {{ t('bookings.estimatedTotal') }}:
+                <span class="font-semibold">$ {{ total }}</span>
+            </div>
 
-        <div v-if="Object.keys(form.errors).length" class="text-sm text-red-600">
-          <div v-for="(msg, key) in form.errors" :key="key">{{ msg }}</div>
-        </div>
-      </form>
-    </div>
-  </AppLayout>
+            <div v-if="Object.keys(form.errors).length" class="space-y-1 text-sm text-wz-danger">
+                <div v-for="(msg, key) in form.errors" :key="key">{{ msg }}</div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 pt-1">
+                <Button type="submit" variant="primary" :disabled="form.processing || !form.workspace_id">
+                    {{ t('bookings.confirmCreate') }}
+                </Button>
+                <Link :href="route('spaces.index')">
+                    <Button variant="ghost" :disabled="form.processing">{{ t('common.cancel') }}</Button>
+                </Link>
+            </div>
+        </form>
+    </AppLayout>
 </template>

@@ -3,12 +3,15 @@
 namespace App\Http\Requests;
 
 use App\Enums\WorkspaceStatus;
+use App\Http\Requests\Concerns\ValidatesWorkspacePaymentInstructions;
 use App\Models\Workspace;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreWorkspaceRequest extends FormRequest
 {
+    use ValidatesWorkspacePaymentInstructions;
+
     public function authorize(): bool
     {
         return $this->user()?->can('create', Workspace::class) ?? false;
@@ -16,7 +19,7 @@ class StoreWorkspaceRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        return array_merge([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],
             'location' => ['required', 'string', 'max:255'],
@@ -32,6 +35,11 @@ class StoreWorkspaceRequest extends FormRequest
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
             'images' => ['sometimes', 'array', 'max:8'],
             'images.*' => ['image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
-        ];
+        ], $this->paymentInstructionRules());
+    }
+
+    public function withValidator($validator): void
+    {
+        $this->validatePublishedPaymentInstructions($validator);
     }
 }

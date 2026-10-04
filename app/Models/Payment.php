@@ -21,6 +21,7 @@ class Payment extends Model
         'status',
         'paid_at',
         'proof_path',
+        'rejection_reason',
         'metadata',
     ];
 

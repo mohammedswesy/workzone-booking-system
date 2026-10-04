@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateWorkspaceRequest;
 use App\Models\Amenity;
 use App\Models\Location;
 use App\Models\Workspace;
+use App\Models\WorkspaceImage;
 use App\Services\Workspaces\WorkspaceGalleryService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -123,5 +124,44 @@ class WorkspaceController extends Controller
         $workspace->delete();
 
         return back()->with('success', 'Workspace deleted 🗑️');
+    }
+
+    public function setPrimaryImage(Workspace $workspace, WorkspaceImage $image)
+    {
+        $this->authorize('update', $workspace);
+        abort_unless($image->workspace_id === $workspace->id, 404);
+
+        $this->gallery->setPrimary($image);
+
+        return back()->with('success', 'Primary image updated.');
+    }
+
+    public function reorderImages(Request $request, Workspace $workspace)
+    {
+        $this->authorize('update', $workspace);
+
+        $data = $request->validate([
+            'order' => ['required', 'array', 'min:1'],
+            'order.*' => ['integer', 'exists:workspace_images,id'],
+        ]);
+
+        $ownedIds = $workspace->images()->pluck('id')->all();
+        foreach ($data['order'] as $id) {
+            abort_unless(in_array((int) $id, $ownedIds, true), 422);
+        }
+
+        $this->gallery->reorder($workspace, $data['order']);
+
+        return back()->with('success', 'Gallery order updated.');
+    }
+
+    public function destroyImage(Workspace $workspace, WorkspaceImage $image)
+    {
+        $this->authorize('update', $workspace);
+        abort_unless($image->workspace_id === $workspace->id, 404);
+
+        $this->gallery->delete($image);
+
+        return back()->with('success', 'Image removed.');
     }
 }

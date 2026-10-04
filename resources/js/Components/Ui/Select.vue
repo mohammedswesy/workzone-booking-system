@@ -20,7 +20,7 @@ defineEmits(['update:modelValue']);
         </label>
         <select
             :id="id"
-            class="wz-focus w-full rounded-xl border border-wz-border bg-wz-elevated px-3 py-2.5 text-sm text-wz-fg"
+            class="wz-focus w-full rounded-xl border border-wz-border bg-wz-elevated px-3 py-2.5 text-sm text-wz-fg disabled:cursor-not-allowed disabled:opacity-55 disabled:text-wz-fg-muted"
             :class="error ? 'border-wz-danger' : ''"
             :value="modelValue"
             :disabled="disabled"

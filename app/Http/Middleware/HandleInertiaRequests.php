@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\PaymentsConfig;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -48,6 +49,10 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+            ],
+            'payments' => [
+                'paypalEnabled' => PaymentsConfig::paypalAvailable(),
+                'manualEnabled' => (bool) config('payments.providers.manual.enabled', true),
             ],
         ]);
     }

@@ -36,6 +36,7 @@ it('accepts manual proof upload and confirms payment via owner', function () {
 
     $this->actingAs($user)
         ->post(route('user.payments.manual.store', $booking), [
+            'method' => 'bank_transfer',
             'proof' => UploadedFile::fake()->create('receipt.jpg', 200, 'image/jpeg'),
         ])
         ->assertRedirect();
@@ -78,6 +79,9 @@ it('marks booking paid idempotently', function () {
 
 it('initiates paypal payment with faked client and captures on return', function () {
     config()->set('payments.providers.paypal.enabled', true);
+    config()->set('paypal.mode', 'sandbox');
+    config()->set('paypal.sandbox.client_id', 'test-client-id');
+    config()->set('paypal.sandbox.client_secret', 'test-client-secret');
 
     $user = User::factory()->userRole()->create();
     $booking = pendingBookingFor($user);
@@ -113,6 +117,22 @@ it('initiates paypal payment with faked client and captures on return', function
     expect($payment->fresh()->status)->toBe(PaymentStatus::Paid)
         ->and($booking->fresh()->status)->toBe(BookingStatus::Confirmed)
         ->and($booking->fresh()->payment_status)->toBe(PaymentStatus::Paid);
+});
+
+it('rejects paypal initiation when credentials are not configured', function () {
+    config()->set('payments.providers.paypal.enabled', true);
+    config()->set('paypal.mode', 'sandbox');
+    config()->set('paypal.sandbox.client_id', '');
+    config()->set('paypal.sandbox.client_secret', '');
+
+    $user = User::factory()->userRole()->create();
+    $booking = pendingBookingFor($user);
+
+    $this->actingAs($user)
+        ->post(route('user.payments.paypal.store', $booking))
+        ->assertStatus(422);
+
+    expect(Payment::where('booking_id', $booking->id)->count())->toBe(0);
 });
 
 it('handles paypal webhooks idempotently when already paid', function () {

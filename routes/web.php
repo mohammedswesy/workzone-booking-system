@@ -88,6 +88,13 @@ Route::middleware(['auth', 'role:owner'])
         Route::resource('workspaces', OwnerWorkspaceController::class)
             ->parameters(['workspaces' => 'workspace']);
 
+        Route::post('workspaces/{workspace}/images/{image}/primary', [OwnerWorkspaceController::class, 'setPrimaryImage'])
+            ->name('workspaces.images.primary');
+        Route::put('workspaces/{workspace}/images/reorder', [OwnerWorkspaceController::class, 'reorderImages'])
+            ->name('workspaces.images.reorder');
+        Route::delete('workspaces/{workspace}/images/{image}', [OwnerWorkspaceController::class, 'destroyImage'])
+            ->name('workspaces.images.destroy');
+
         Route::resource('bookings', OwnerBookingController::class)
             ->parameters(['bookings' => 'booking'])
             ->only(['index', 'show', 'edit', 'update', 'destroy']);
@@ -117,6 +124,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/payments/paypal/cancel', [PaymentController::class, 'paypalCancel'])->name('payments.paypal.cancel');
     Route::post('/payments/{payment}/confirm', [PaymentController::class, 'confirmManual'])
         ->name('payments.manual.confirm');
+    Route::post('/payments/{payment}/reject', [PaymentController::class, 'rejectManual'])
+        ->name('payments.manual.reject');
 });
 
 Route::post('/webhooks/paypal', [PaymentController::class, 'webhookPaypal'])->name('webhooks.paypal');

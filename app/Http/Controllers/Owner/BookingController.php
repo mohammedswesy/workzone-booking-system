@@ -59,6 +59,7 @@ class BookingController extends Controller
         $booking->loadMissing([
             'workspace:id,name,location,owner_id',
             'user:id,name,email',
+            'payments' => fn ($q) => $q->latest(),
         ]);
 
         return Inertia::render('Owner/Bookings/Show', [
@@ -79,6 +80,7 @@ class BookingController extends Controller
             'booking' => $booking,
             'statuses' => [
                 BookingStatus::Confirmed->value,
+                BookingStatus::Completed->value,
                 BookingStatus::Cancelled->value,
             ],
         ]);
@@ -125,9 +127,11 @@ class BookingController extends Controller
     {
         $this->authorize('delete', $booking);
 
-        $booking->delete();
+        $booking->update([
+            'status' => BookingStatus::Cancelled,
+        ]);
 
         return redirect()->route('owner.bookings.index')
-            ->with('success', 'تم حذف الحجز.');
+            ->with('success', 'تم إلغاء الحجز.');
     }
 }

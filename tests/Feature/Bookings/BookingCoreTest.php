@@ -174,6 +174,35 @@ it('forbids owners from changing hours or price via update', function () {
         ->and((string) $booking->total_price)->toBe('200.00');
 });
 
+it('cancels a booking by status without deleting the row or its payments', function () {
+    [, $workspace] = makeOwnerWorkspace();
+    $user = User::factory()->userRole()->create();
+    $booking = Booking::factory()->create([
+        'user_id' => $user->id,
+        'workspace_id' => $workspace->id,
+        'status' => BookingStatus::Pending,
+        'payment_status' => PaymentStatus::Pending,
+    ]);
+
+    \App\Models\Payment::create([
+        'booking_id' => $booking->id,
+        'provider' => \App\Enums\PaymentProvider::Manual,
+        'reference' => 'manual-cancel-keep-'.$booking->id,
+        'amount' => $booking->total_price,
+        'currency' => 'USD',
+        'status' => PaymentStatus::Pending,
+        'proof_path' => 'proofs/example.jpg',
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('user.bookings.destroy', $booking))
+        ->assertRedirect(route('user.bookings.index'));
+
+    expect(Booking::query()->whereKey($booking->id)->exists())->toBeTrue()
+        ->and($booking->fresh()->status)->toBe(BookingStatus::Cancelled)
+        ->and(\App\Models\Payment::query()->where('booking_id', $booking->id)->count())->toBe(1);
+});
+
 it('forbids regular users from creating bookings through policy boundary on store', function () {
     [, $workspace] = makeOwnerWorkspace();
     $owner = User::factory()->owner()->create();

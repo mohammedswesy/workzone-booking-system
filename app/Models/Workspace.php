@@ -32,6 +32,8 @@ class Workspace extends Model
         'image_url',
         'status',
         'featured',
+        'payment_instructions',
+        'payment_methods',
     ];
 
     protected $appends = ['active_discount_percent', 'effective_price_per_hour', 'offer_label'];
@@ -43,7 +45,13 @@ class Workspace extends Model
             'price_per_hour' => 'decimal:2',
             'status' => WorkspaceStatus::class,
             'featured' => 'boolean',
+            'payment_methods' => 'array',
         ];
+    }
+
+    public function acceptsPaymentMethod(string $method): bool
+    {
+        return in_array($method, $this->payment_methods ?? [], true);
     }
 
     protected static function booted(): void

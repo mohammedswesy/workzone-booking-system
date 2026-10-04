@@ -1,91 +1,270 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue'
-import { useForm, Link } from '@inertiajs/vue3'
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/Ui/PageHeader.vue';
+import Button from '@/Components/Ui/Button.vue';
+import Input from '@/Components/Ui/Input.vue';
+import Select from '@/Components/Ui/Select.vue';
+import GalleryManager from '@/Components/Ui/GalleryManager.vue';
 
 const props = defineProps({
-  // يأتي من الكنترولر: only('id','name','location','capacity','price_per_hour','image_url')
-  workspace: { type: Object, required: true }
-})
+    workspace: { type: Object, required: true },
+    locations: { type: Array, default: () => [] },
+    amenities: { type: Array, default: () => [] },
+});
+
+const { t } = useI18n();
+
+function timeValue(value) {
+    if (!value) return '';
+    return String(value).slice(0, 5);
+}
 
 const form = useForm({
-  name: props.workspace.name ?? '',
-  location: props.workspace.location ?? '',
-  capacity: props.workspace.capacity ?? 1,
-  price_per_hour: props.workspace.price_per_hour ?? 0,
-  image_url: props.workspace.image_url ?? '', // إن حابب تتحكم بالرابط
-  image: null, // اختيار صورة بديلة يرفعها ويستبدلها في السيرفر
-})
+    name: props.workspace.name ?? '',
+    description: props.workspace.description ?? '',
+    location: props.workspace.location ?? '',
+    location_id: props.workspace.location_id ?? null,
+    capacity: props.workspace.capacity ?? 1,
+    price_per_hour: props.workspace.price_per_hour ?? 0,
+    opening_time: timeValue(props.workspace.opening_time) || '08:00',
+    closing_time: timeValue(props.workspace.closing_time) || '22:00',
+    status: props.workspace.status ?? 'published',
+    featured: Boolean(props.workspace.featured),
+    payment_instructions: props.workspace.payment_instructions ?? '',
+    payment_methods: [...(props.workspace.payment_methods || [])],
+    amenities: (props.workspace.amenities || []).map((a) => a.id),
+    images: [],
+});
+
+const methodOptions = [
+    { value: 'bank_transfer', labelKey: 'payment.methodBank' },
+    { value: 'wallet', labelKey: 'payment.methodWallet' },
+    { value: 'cash', labelKey: 'payment.methodCash' },
+];
+
+function onFiles(files) {
+    form.images = files;
+}
+
+function toggleAmenity(id) {
+    const key = Number(id);
+    if (form.amenities.includes(key)) {
+        form.amenities = form.amenities.filter((a) => a !== key);
+    } else {
+        form.amenities.push(key);
+    }
+}
+
+function toggleMethod(value) {
+    if (form.payment_methods.includes(value)) {
+        form.payment_methods = form.payment_methods.filter((m) => m !== value);
+    } else {
+        form.payment_methods.push(value);
+    }
+}
 
 function submit() {
-  // أبسط: put مباشرة، مع forceFormData لأن فيه ملف محتمل
-  form.put(route('owner.workspaces.update', props.workspace.id), {
-    forceFormData: true,
-    preserveScroll: true,
-  })
+    form
+        .transform((data) => ({
+            ...data,
+            _method: 'put',
+        }))
+        .post(route('owner.workspaces.update', props.workspace.id), {
+            forceFormData: true,
+            preserveScroll: true,
+        });
 }
 </script>
 
 <template>
-  <AppLayout title="تعديل المساحة">
-    <div class="max-w-xl mx-auto p-6">
-      <h1 class="text-xl font-semibold mb-4">تعديل: {{ props.workspace.name }}</h1>
+    <AppLayout :title="t('owner.editWorkspace')">
+        <Head :title="t('owner.editWorkspace')" />
 
-      <form @submit.prevent="submit" class="bg-white border rounded p-6 space-y-4">
-        <div>
-          <label class="block text-sm font-medium mb-1">اسم المساحة</label>
-          <input v-model="form.name" class="border rounded px-3 py-2 w-full" />
-          <div v-if="form.errors.name" class="text-red-600 text-sm mt-1">{{ form.errors.name }}</div>
-        </div>
+        <PageHeader :title="t('owner.editWorkspace')" :subtitle="workspace.name">
+            <template #actions>
+                <Link :href="route('owner.workspaces.index')">
+                    <Button variant="secondary">{{ t('common.back') }}</Button>
+                </Link>
+            </template>
+        </PageHeader>
 
-        <div>
-          <label class="block text-sm font-medium mb-1">الموقع</label>
-          <input v-model="form.location" class="border rounded px-3 py-2 w-full" />
-          <div v-if="form.errors.location" class="text-red-600 text-sm mt-1">{{ form.errors.location }}</div>
-        </div>
+        <form class="wz-surface mx-auto max-w-3xl space-y-5 p-5" @submit.prevent="submit">
+            <Input id="edit-ws-name" v-model="form.name" :error="form.errors.name" :disabled="form.processing">
+                <template #label>{{ t('bookings.workspace') }}</template>
+            </Input>
 
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium mb-1">السعة</label>
-            <input v-model.number="form.capacity" type="number" min="1" class="border rounded px-3 py-2 w-full" />
-            <div v-if="form.errors.capacity" class="text-red-600 text-sm mt-1">{{ form.errors.capacity }}</div>
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">السعر/ساعة</label>
-            <input v-model.number="form.price_per_hour" type="number" min="0" step="0.01" class="border rounded px-3 py-2 w-full" />
-            <div v-if="form.errors.price_per_hour" class="text-red-600 text-sm mt-1">{{ form.errors.price_per_hour }}</div>
-          </div>
-        </div>
+            <label class="grid gap-1.5">
+                <span class="text-sm font-medium text-wz-fg">{{ t('owner.description') }}</span>
+                <textarea
+                    v-model="form.description"
+                    rows="3"
+                    class="wz-focus w-full rounded-xl border border-wz-border bg-wz-elevated px-3 py-2.5 text-sm text-wz-fg disabled:cursor-not-allowed disabled:opacity-55 disabled:text-wz-fg-muted"
+                    :disabled="form.processing"
+                />
+            </label>
 
-        <div>
-          <label class="block text-sm font-medium mb-1">رابط صورة (اختياري)</label>
-          <input v-model="form.image_url" class="border rounded px-3 py-2 w-full" />
-          <div v-if="form.errors.image_url" class="text-red-600 text-sm mt-1">{{ form.errors.image_url }}</div>
-        </div>
+            <div class="grid gap-3 md:grid-cols-2">
+                <Input
+                    id="edit-ws-location"
+                    v-model="form.location"
+                    :error="form.errors.location"
+                    :disabled="form.processing"
+                >
+                    <template #label>{{ t('owner.locationText') }}</template>
+                </Input>
+                <Select
+                    id="edit-ws-location-id"
+                    :model-value="form.location_id ?? ''"
+                    :disabled="form.processing"
+                    @update:model-value="form.location_id = $event ? Number($event) : null"
+                >
+                    <template #label>{{ t('owner.locationPlace') }}</template>
+                    <option value="">{{ t('owner.selectLocation') }}</option>
+                    <option v-for="loc in locations" :key="loc.id" :value="loc.id">
+                        {{ loc.name }}{{ loc.city ? ` — ${loc.city}` : '' }}
+                    </option>
+                </Select>
+            </div>
 
-        <div class="space-y-2">
-          <label class="block text-sm font-medium">رفع صورة بديلة (اختياري)</label>
-          <input type="file" accept="image/*" @change="e => form.image = e.target.files[0]" />
-          <div v-if="form.errors.image" class="text-red-600 text-sm mt-1">{{ form.errors.image }}</div>
+            <div class="grid gap-3 md:grid-cols-2">
+                <Input
+                    id="edit-ws-capacity"
+                    v-model="form.capacity"
+                    type="number"
+                    :error="form.errors.capacity"
+                    :disabled="form.processing"
+                >
+                    <template #label>{{ t('owner.capacity') }}</template>
+                </Input>
+                <Input
+                    id="edit-ws-price"
+                    v-model="form.price_per_hour"
+                    type="number"
+                    :error="form.errors.price_per_hour"
+                    :disabled="form.processing"
+                >
+                    <template #label>{{ t('owner.pricePerHour') }}</template>
+                </Input>
+            </div>
 
-          <!-- معاينة الحالية -->
-          <div v-if="props.workspace.image_url" class="text-sm text-gray-600">
-            الصورة الحالية:
-            <img :src="props.workspace.image_url" alt="" class="mt-2 h-24 w-full object-cover rounded border" />
-          </div>
-        </div>
+            <div class="grid gap-3 md:grid-cols-2">
+                <Input
+                    id="edit-ws-open"
+                    v-model="form.opening_time"
+                    type="time"
+                    :error="form.errors.opening_time"
+                    :disabled="form.processing"
+                >
+                    <template #label>{{ t('owner.openingTime') }}</template>
+                </Input>
+                <Input
+                    id="edit-ws-close"
+                    v-model="form.closing_time"
+                    type="time"
+                    :error="form.errors.closing_time"
+                    :disabled="form.processing"
+                >
+                    <template #label>{{ t('owner.closingTime') }}</template>
+                </Input>
+            </div>
 
-        <div class="flex items-center gap-3 pt-2">
-          <button class="bg-gray-900 text-white px-4 py-2 rounded" :disabled="form.processing">
-            {{ form.processing ? 'جارِ الحفظ…' : 'حفظ' }}
-          </button>
-          <Link :href="route('owner.workspaces.index')" class="text-gray-600 hover:underline">رجوع</Link>
-        </div>
+            <div class="grid gap-3 md:grid-cols-2">
+                <Select id="edit-ws-status" v-model="form.status" :disabled="form.processing">
+                    <template #label>{{ t('owner.status') }}</template>
+                    <option value="draft">{{ t('owner.draft') }}</option>
+                    <option value="published">{{ t('owner.published') }}</option>
+                    <option value="archived">{{ t('owner.archived') }}</option>
+                </Select>
+                <label class="flex items-center gap-2 pt-7 text-sm text-wz-fg">
+                    <input
+                        v-model="form.featured"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-wz-border text-wz-brand disabled:opacity-55"
+                        :disabled="form.processing"
+                    />
+                    {{ t('owner.featured') }}
+                </label>
+            </div>
 
-        <!-- تجميع الأخطاء العامة إن وجِدت -->
-        <div v-if="Object.keys(form.errors).length" class="mt-3 text-sm text-red-600 space-y-1">
-          <div v-for="(msg, key) in form.errors" :key="key">{{ msg }}</div>
-        </div>
-      </form>
-    </div>
-  </AppLayout>
+            <div class="space-y-3 rounded-xl border border-wz-border bg-wz-muted/40 p-4">
+                <div>
+                    <p class="text-sm font-medium text-wz-fg">{{ t('owner.paymentInstructions') }}</p>
+                    <p class="mt-1 text-xs text-wz-fg-muted">{{ t('owner.paymentInstructionsHint') }}</p>
+                    <textarea
+                        v-model="form.payment_instructions"
+                        rows="4"
+                        maxlength="2000"
+                        class="wz-focus mt-2 w-full rounded-xl border border-wz-border bg-wz-elevated px-3 py-2.5 text-sm text-wz-fg disabled:cursor-not-allowed disabled:opacity-55 disabled:text-wz-fg-muted"
+                        :disabled="form.processing"
+                    />
+                    <p v-if="form.errors.payment_instructions" class="mt-1 text-xs text-wz-danger">
+                        {{ form.errors.payment_instructions }}
+                    </p>
+                </div>
+                <div>
+                    <p class="mb-2 text-sm font-medium text-wz-fg">{{ t('owner.paymentMethods') }}</p>
+                    <div class="flex flex-wrap gap-2">
+                        <label
+                            v-for="m in methodOptions"
+                            :key="m.value"
+                            class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-wz-border bg-wz-elevated px-3 py-2 text-sm text-wz-fg"
+                        >
+                            <input
+                                type="checkbox"
+                                class="h-4 w-4 rounded border-wz-border text-wz-brand disabled:opacity-55"
+                                :checked="form.payment_methods.includes(m.value)"
+                                :disabled="form.processing"
+                                @change="toggleMethod(m.value)"
+                            />
+                            {{ t(m.labelKey) }}
+                        </label>
+                    </div>
+                    <p v-if="form.errors.payment_methods" class="mt-1 text-xs text-wz-danger">
+                        {{ form.errors.payment_methods }}
+                    </p>
+                </div>
+            </div>
+
+            <div>
+                <p class="mb-2 text-sm font-medium text-wz-fg">{{ t('owner.amenities') }}</p>
+                <div class="flex flex-wrap gap-2">
+                    <label
+                        v-for="a in amenities"
+                        :key="a.id"
+                        class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-wz-border bg-wz-elevated px-3 py-2 text-sm text-wz-fg"
+                    >
+                        <input
+                            type="checkbox"
+                            class="h-4 w-4 rounded border-wz-border text-wz-brand disabled:opacity-55"
+                            :checked="form.amenities.includes(a.id)"
+                            :disabled="form.processing"
+                            @change="toggleAmenity(a.id)"
+                        />
+                        {{ a.name }}
+                    </label>
+                </div>
+            </div>
+
+            <GalleryManager
+                :workspace-id="workspace.id"
+                :images="workspace.images || []"
+                @files="onFiles"
+            />
+
+            <div v-if="Object.keys(form.errors).length" class="space-y-1 text-sm text-wz-danger">
+                <div v-for="(msg, key) in form.errors" :key="key">{{ msg }}</div>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+                <Button type="submit" variant="primary" :disabled="form.processing">
+                    {{ t('common.save') }}
+                </Button>
+                <Link :href="route('owner.workspaces.index')">
+                    <Button variant="ghost" :disabled="form.processing">{{ t('common.cancel') }}</Button>
+                </Link>
+            </div>
+        </form>
+    </AppLayout>
 </template>

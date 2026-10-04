@@ -19,7 +19,7 @@ defineEmits(['update:modelValue']);
         <input
             :id="id"
             :type="type"
-            class="wz-focus w-full rounded-xl border border-wz-border bg-wz-elevated px-3 py-2.5 text-sm text-wz-fg placeholder:text-wz-fg-muted"
+            class="wz-focus w-full rounded-xl border border-wz-border bg-wz-elevated px-3 py-2.5 text-sm text-wz-fg placeholder:text-wz-fg-muted disabled:cursor-not-allowed disabled:opacity-55 disabled:text-wz-fg-muted"
             :class="error ? 'border-wz-danger' : ''"
             :value="modelValue"
             :placeholder="placeholder"

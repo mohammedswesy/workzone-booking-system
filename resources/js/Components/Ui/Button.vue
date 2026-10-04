@@ -19,7 +19,7 @@ defineProps({
 <template>
     <button
         :type="type"
-        class="wz-focus inline-flex items-center justify-center gap-2 font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+        class="wz-focus inline-flex items-center justify-center gap-2 font-medium transition disabled:cursor-not-allowed disabled:opacity-55"
         :class="[
             block ? 'w-full' : '',
             size === 'sm' ? 'rounded-lg px-3 py-1.5 text-sm' : '',

@@ -45,6 +45,23 @@ class DashboardController extends Controller
                 'revenue' => (string) $row->revenue,
             ]);
 
+        $recentBookings = (clone $bookingsQuery)
+            ->with([
+                'workspace:id,name',
+                'user:id,name,email',
+            ])
+            ->latest()
+            ->limit(5)
+            ->get();
+
+        $activeOffers = Offer::query()
+            ->where('owner_id', $ownerId)
+            ->active()
+            ->with('workspace:id,name')
+            ->latest()
+            ->limit(5)
+            ->get(['id', 'workspace_id', 'title', 'discount_percent', 'starts_at', 'ends_at', 'is_active']);
+
         return Inertia::render('Owner/Dashboard', [
             'stats' => [
                 'workspaces_count' => $workspaceIds->count(),
@@ -57,6 +74,8 @@ class DashboardController extends Controller
                 'revenue' => number_format((float) $revenue, 2, '.', ''),
             ],
             'topWorkspaces' => $topWorkspaces,
+            'recentBookings' => $recentBookings,
+            'activeOffers' => $activeOffers,
         ]);
     }
 }

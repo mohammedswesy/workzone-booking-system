@@ -2,6 +2,7 @@
 
 namespace App\Services\Payments;
 
+use App\Enums\PaymentMethod;
 use App\Enums\PaymentProvider;
 use App\Enums\PaymentStatus;
 use App\Models\Booking;
@@ -19,16 +20,28 @@ class ManualPaymentGateway implements PaymentGateway
 
     public function initiate(Booking $booking, array $payload = []): PaymentResult
     {
-        /** @var UploadedFile|null $proof */
-        $proof = $payload['proof'] ?? null;
+        $method = (string) ($payload['method'] ?? '');
+        $workspace = $booking->workspace()->first() ?? $booking->workspace;
 
-        if (! $proof instanceof UploadedFile) {
+        if (! $workspace || ! $workspace->acceptsPaymentMethod($method)) {
             throw ValidationException::withMessages([
-                'proof' => 'Payment proof file is required.',
+                'method' => 'This payment method is not accepted for this workspace.',
             ]);
         }
 
-        $path = $proof->store('payment-proofs', 'public');
+        /** @var UploadedFile|null $proof */
+        $proof = $payload['proof'] ?? null;
+        $isCash = $method === PaymentMethod::Cash->value;
+
+        if (! $isCash && ! $proof instanceof UploadedFile) {
+            throw ValidationException::withMessages([
+                'proof' => 'Payment proof file is required for this method.',
+            ]);
+        }
+
+        $path = $proof instanceof UploadedFile
+            ? $proof->store('payment-proofs', 'public')
+            : null;
 
         $payment = Payment::create([
             'booking_id' => $booking->id,
@@ -38,8 +51,10 @@ class ManualPaymentGateway implements PaymentGateway
             'currency' => config('payments.currency', 'USD'),
             'status' => PaymentStatus::Pending,
             'proof_path' => $path,
+            'rejection_reason' => null,
             'metadata' => [
-                'original_name' => $proof->getClientOriginalName(),
+                'method' => $method,
+                'original_name' => $proof?->getClientOriginalName(),
                 'uploaded_by' => $payload['user_id'] ?? null,
             ],
         ]);
@@ -48,7 +63,9 @@ class ManualPaymentGateway implements PaymentGateway
 
         return new PaymentResult(
             payment: $payment,
-            message: 'Proof uploaded. Waiting for owner/admin confirmation.',
+            message: $isCash && ! $path
+                ? 'Cash payment noted. Waiting for owner confirmation.'
+                : 'Proof uploaded. Waiting for owner confirmation.',
         );
     }
 
@@ -67,7 +84,38 @@ class ManualPaymentGateway implements PaymentGateway
             'confirmed_at' => now()->toIso8601String(),
         ]);
 
-        return new PaymentResult($payment, message: 'Manual payment confirmed.');
+        return new PaymentResult($payment, message: 'Payment confirmed.');
+    }
+
+    public function reject(Payment $payment, string $reason, ?int $rejectedBy = null): PaymentResult
+    {
+        if ($payment->provider !== PaymentProvider::Manual) {
+            throw new RuntimeException('Only manual payments can be rejected here.');
+        }
+
+        if ($payment->status === PaymentStatus::Paid) {
+            throw ValidationException::withMessages([
+                'payment' => 'Paid payments cannot be rejected.',
+            ]);
+        }
+
+        $payment->update([
+            'status' => PaymentStatus::Failed,
+            'rejection_reason' => $reason,
+            'metadata' => array_merge($payment->metadata ?? [], [
+                'rejected_by' => $rejectedBy,
+                'rejected_at' => now()->toIso8601String(),
+            ]),
+        ]);
+
+        $payment->booking?->update([
+            'payment_status' => PaymentStatus::Unpaid,
+        ]);
+
+        return new PaymentResult(
+            payment: $payment->fresh(),
+            message: 'Payment proof rejected.',
+        );
     }
 
     public function handleWebhook(Request $request): PaymentResult

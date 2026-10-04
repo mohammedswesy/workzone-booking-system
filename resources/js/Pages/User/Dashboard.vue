@@ -1,41 +1,118 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue'
-import { Link } from '@inertiajs/vue3'
+import { Head, Link } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/Ui/PageHeader.vue';
+import StatCard from '@/Components/Ui/StatCard.vue';
+import Button from '@/Components/Ui/Button.vue';
+import Badge from '@/Components/Ui/Badge.vue';
+import EmptyState from '@/Components/Ui/EmptyState.vue';
 
 defineProps({
-  stats: Object,
-  upcoming: Array,
-})
+    stats: Object,
+    upcoming: Array,
+});
+
+const { t, locale } = useI18n();
+
+function formatDate(value) {
+    if (!value) return '—';
+    try {
+        return new Date(value).toLocaleString(locale.value === 'ar' ? 'ar' : 'en', {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+        });
+    } catch {
+        return value;
+    }
+}
+
+function statusTone(status) {
+    const map = {
+        pending: 'warning',
+        confirmed: 'success',
+        cancelled: 'danger',
+        completed: 'brand',
+        no_show: 'neutral',
+    };
+    return map[status] || 'neutral';
+}
 </script>
 
 <template>
-  <AppLayout title="لوحة المستخدم">
-    <div class="max-w-6xl mx-auto px-4 py-6 space-y-6">
-      <div class="flex items-center justify-between">
-        <h1 class="text-xl font-semibold">لوحة الحجوزات</h1>
-        <Link :href="route('spaces.index')" class="bg-indigo-600 text-white px-4 py-2 rounded">تصفح المساحات</Link>
-      </div>
+    <AppLayout :title="t('bookings.dashboardTitle')">
+        <Head :title="t('bookings.dashboardTitle')" />
 
-      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="border rounded-xl p-4 bg-white"><div class="text-slate-500 text-sm">كل الحجوزات</div><div class="text-2xl font-semibold">{{ stats.bookings_count }}</div></div>
-        <div class="border rounded-xl p-4 bg-white"><div class="text-slate-500 text-sm">معلّقة</div><div class="text-2xl font-semibold">{{ stats.pending_count }}</div></div>
-        <div class="border rounded-xl p-4 bg-white"><div class="text-slate-500 text-sm">مؤكدة</div><div class="text-2xl font-semibold">{{ stats.confirmed_count }}</div></div>
-        <div class="border rounded-xl p-4 bg-white"><div class="text-slate-500 text-sm">غير مدفوعة</div><div class="text-2xl font-semibold">{{ stats.unpaid_count }}</div></div>
-      </div>
+        <PageHeader
+            :title="t('bookings.dashboardTitle')"
+            :subtitle="t('bookings.dashboardSubtitle')"
+        >
+            <template #actions>
+                <Link :href="route('spaces.index')">
+                    <Button variant="primary">{{ t('bookings.browseSpaces') }}</Button>
+                </Link>
+                <Link :href="route('user.bookings.index')">
+                    <Button variant="secondary">{{ t('bookings.title') }}</Button>
+                </Link>
+            </template>
+        </PageHeader>
 
-      <div class="border rounded-xl bg-white">
-        <div class="px-4 py-3 border-b font-medium">القادمة</div>
-        <div v-if="!upcoming?.length" class="p-6 text-slate-500">لا توجد حجوزات قادمة.</div>
-        <ul v-else class="divide-y">
-          <li v-for="b in upcoming" :key="b.id" class="px-4 py-3 flex items-center justify-between gap-3">
-            <div>
-              <div class="font-medium">{{ b.workspace?.name }}</div>
-              <div class="text-sm text-slate-500">{{ b.start_at ? new Date(b.start_at).toLocaleString() : '' }}</div>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard :label="t('bookings.statAll')" :value="stats.bookings_count ?? 0" />
+            <StatCard :label="t('bookings.statPending')" :value="stats.pending_count ?? 0" />
+            <StatCard :label="t('bookings.statConfirmed')" :value="stats.confirmed_count ?? 0" />
+            <StatCard :label="t('bookings.statUnpaid')" :value="stats.unpaid_count ?? 0" />
+        </div>
+
+        <section class="mt-6">
+            <div class="mb-3 flex items-center justify-between gap-3">
+                <h2 class="font-display text-lg font-semibold text-wz-fg">
+                    {{ t('bookings.upcoming') }}
+                </h2>
+                <Link
+                    :href="route('user.bookings.index')"
+                    class="text-sm font-medium text-wz-brand hover:opacity-90"
+                >
+                    {{ t('bookings.title') }}
+                </Link>
             </div>
-            <Link :href="route('user.bookings.show', b.id)" class="text-indigo-600 text-sm">عرض</Link>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </AppLayout>
+
+            <EmptyState
+                v-if="!upcoming?.length"
+                :title="t('bookings.noUpcoming')"
+                :description="t('bookings.emptyHint')"
+            >
+                <template #action>
+                    <Link :href="route('spaces.index')">
+                        <Button variant="primary" size="sm">{{ t('bookings.browseSpaces') }}</Button>
+                    </Link>
+                </template>
+            </EmptyState>
+
+            <ul v-else class="wz-surface divide-y divide-wz-border overflow-hidden">
+                <li
+                    v-for="b in upcoming"
+                    :key="b.id"
+                    class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="truncate font-medium text-wz-fg">
+                                {{ b.workspace?.name }}
+                            </span>
+                            <Badge :tone="statusTone(b.status)">
+                                {{ t(`status.${b.status}`, b.status) }}
+                            </Badge>
+                        </div>
+                        <p class="mt-1 text-sm text-wz-fg-muted">
+                            {{ formatDate(b.start_at) }}
+                        </p>
+                    </div>
+                    <Link :href="route('user.bookings.show', b.id)">
+                        <Button variant="secondary" size="sm">{{ t('bookings.view') }}</Button>
+                    </Link>
+                </li>
+            </ul>
+        </section>
+    </AppLayout>
 </template>

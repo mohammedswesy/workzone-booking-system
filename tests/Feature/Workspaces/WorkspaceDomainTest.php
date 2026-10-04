@@ -87,6 +87,9 @@ it('stores uploaded gallery images with strict validation and primary flag', fun
         'description' => 'Nice room',
         'capacity' => 12,
         'price_per_hour' => 55,
+        'status' => 'published',
+        'payment_instructions' => 'Pay via bank transfer to IBAN PS00…',
+        'payment_methods' => ['bank_transfer', 'cash'],
         'image' => UploadedFile::fake()->create('main.jpg', 100, 'image/jpeg'),
         'images' => [
             UploadedFile::fake()->create('two.jpg', 100, 'image/jpeg'),

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Actions\Bookings\CreateBooking;
+use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreBookingRequest;
 use App\Http\Requests\UpdateBookingRequest;
@@ -49,7 +50,10 @@ class BookingController extends Controller
 
     public function show(Booking $booking)
     {
-        $booking->load(['workspace:id,name,location,price_per_hour']);
+        $booking->load([
+            'workspace:id,name,location,price_per_hour,payment_instructions,payment_methods',
+            'payments' => fn ($q) => $q->latest(),
+        ]);
 
         return Inertia::render('User/Bookings/Show', [
             'booking' => $booking,
@@ -155,11 +159,13 @@ class BookingController extends Controller
 
     public function destroy(Booking $booking)
     {
-        $booking->delete();
+        $booking->update([
+            'status' => BookingStatus::Cancelled,
+        ]);
 
         return redirect()
             ->route('user.bookings.index')
-            ->with('success', 'تم الحذف.');
+            ->with('success', 'تم إلغاء الحجز.');
     }
 
     /**

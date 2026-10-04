@@ -1,42 +1,85 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue'
-import { useForm, Link } from '@inertiajs/vue3'
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/Ui/PageHeader.vue';
+import Button from '@/Components/Ui/Button.vue';
+import Select from '@/Components/Ui/Select.vue';
+import Input from '@/Components/Ui/Input.vue';
 
 const props = defineProps({
-  booking: { type: Object, required: true },
-  statuses: { type: Array, default: () => ['confirmed', 'cancelled'] }
-})
+    booking: { type: Object, required: true },
+    statuses: {
+        type: Array,
+        default: () => ['confirmed', 'completed', 'cancelled'],
+    },
+});
+
+const { t } = useI18n();
 
 const form = useForm({
-  status: props.booking.status ?? 'pending'
-})
+    status: props.booking.status ?? 'pending',
+});
 
 function submit() {
-  form.put(route('owner.bookings.update', props.booking.id))
+    form.put(route('owner.bookings.update', props.booking.id));
 }
 </script>
 
 <template>
-  <AppLayout title="تعديل الحجز">
-    <div class="max-w-xl mx-auto px-4 py-6 space-y-4">
-      <h1 class="text-xl font-semibold">تعديل حجز #{{ booking.id }}</h1>
+    <AppLayout :title="t('owner.reviewStatus')">
+        <Head :title="t('owner.reviewStatus')" />
 
-      <form @submit.prevent="submit" class="border rounded-xl p-4 space-y-3 bg-white">
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">الحالة</label>
-          <select v-model="form.status" class="border rounded px-3 py-2 w-full">
-            <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
-          </select>
-          <div v-if="form.errors.status" class="text-red-600 text-sm mt-1">{{ form.errors.status }}</div>
-        </div>
+        <PageHeader
+            :title="t('owner.reviewStatus')"
+            :subtitle="`#${booking.id} · ${booking.workspace?.name || ''}`"
+        >
+            <template #actions>
+                <Link :href="route('owner.bookings.show', booking.id)">
+                    <Button variant="secondary">{{ t('common.back') }}</Button>
+                </Link>
+            </template>
+        </PageHeader>
 
-        <div class="flex items-center gap-3">
-          <button class="bg-gray-900 text-white px-4 py-2 rounded" :disabled="form.processing">
-            حفظ
-          </button>
-          <Link :href="route('owner.bookings.index')" class="text-slate-600">رجوع</Link>
-        </div>
-      </form>
-    </div>
-  </AppLayout>
+        <form class="wz-surface mx-auto max-w-xl space-y-4 p-5" @submit.prevent="submit">
+            <p class="text-sm text-wz-fg-muted">{{ t('owner.bookingsSubtitle') }}</p>
+
+            <Select
+                id="owner-booking-status"
+                v-model="form.status"
+                :error="form.errors.status"
+                :disabled="form.processing"
+            >
+                <template #label>{{ t('bookings.status') }}</template>
+                <option v-for="s in statuses" :key="s" :value="s">
+                    {{ t(`status.${s}`, s) }}
+                </option>
+            </Select>
+
+            <Input
+                id="owner-booking-hours"
+                :model-value="String(booking.hours ?? '')"
+                disabled
+            >
+                <template #label>{{ t('owner.hoursFixed') }}</template>
+            </Input>
+
+            <Input
+                id="owner-booking-total"
+                :model-value="`$ ${Number(booking.total_price ?? 0).toFixed(2)}`"
+                disabled
+            >
+                <template #label>{{ t('owner.priceFixed') }}</template>
+            </Input>
+
+            <div class="flex flex-wrap gap-3">
+                <Button type="submit" variant="primary" :disabled="form.processing">
+                    {{ t('common.save') }}
+                </Button>
+                <Link :href="route('owner.bookings.index')">
+                    <Button variant="ghost" :disabled="form.processing">{{ t('common.cancel') }}</Button>
+                </Link>
+            </div>
+        </form>
+    </AppLayout>
 </template>

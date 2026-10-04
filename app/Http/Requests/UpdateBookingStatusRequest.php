@@ -18,7 +18,11 @@ class UpdateBookingStatusRequest extends FormRequest
 
     public function rules(): array
     {
-        $allowed = [BookingStatus::Confirmed, BookingStatus::Cancelled];
+        $allowed = [
+            BookingStatus::Confirmed,
+            BookingStatus::Completed,
+            BookingStatus::Cancelled,
+        ];
 
         if ($this->user()?->role === Role::Admin) {
             $allowed = BookingStatus::cases();
