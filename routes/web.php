@@ -1,22 +1,20 @@
 <?php
 
 use App\Http\Controllers\Admin\BookingController as AdminBookingController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\WorkspaceController as AdminWorkspaceController;
 use App\Http\Controllers\Owner\BookingController as OwnerBookingController;
+use App\Http\Controllers\Owner\DashboardController as OwnerDashboardController;
 use App\Http\Controllers\Owner\OfferController;
 use App\Http\Controllers\Owner\WorkspaceController as OwnerWorkspaceController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\User\BookingController as UserBookingController;
+use App\Http\Controllers\User\DashboardController as UserDashboardController;
 use App\Http\Controllers\User\WorkspaceController as UserWorkspaceController;
-use App\Models\Booking;
-use App\Models\Offer;
-use App\Models\User;
-use App\Models\Workspace;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -38,7 +36,7 @@ Route::get('/dashboard', function () {
     return match ($user->role?->value ?? 'user') {
         'admin' => redirect()->route('admin.dashboard'),
         'owner' => redirect()->route('owner.dashboard'),
-        default => redirect()->route('user.bookings.index'),
+        default => redirect()->route('user.dashboard'),
     };
 })->middleware('auth')->name('dashboard');
 
@@ -52,16 +50,7 @@ Route::middleware(['auth', 'role:admin'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
-        Route::get('/dashboard', function () {
-            return Inertia::render('Admin/Dashboard', [
-                'stats' => [
-                    'users' => User::where('role', 'user')->count(),
-                    'owners' => User::where('role', 'owner')->count(),
-                    'workspaces' => Workspace::count(),
-                    'bookings' => Booking::count(),
-                ],
-            ]);
-        })->name('dashboard');
+        Route::get('/dashboard', AdminDashboardController::class)->name('dashboard');
 
         Route::resource('users', AdminUserController::class)->only(['index', 'edit', 'update', 'destroy']);
         Route::resource('workspaces', AdminWorkspaceController::class)
@@ -71,50 +60,14 @@ Route::middleware(['auth', 'role:admin'])
             ->parameters(['bookings' => 'booking'])
             ->only(['index', 'show', 'edit', 'update', 'destroy']);
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
     });
 
 Route::middleware(['auth', 'role:owner'])
     ->prefix('owner')
     ->name('owner.')
     ->group(function () {
-        Route::get('/dashboard', function () {
-            $owner = request()->user();
-
-            $workspacesCount = Workspace::where('owner_id', $owner->id)->count();
-
-            $bookingsCount = Booking::whereHas('workspace', function ($q) use ($owner) {
-                $q->where('owner_id', $owner->id);
-            })->count();
-
-            $pendingCount = Booking::whereHas('workspace', function ($q) use ($owner) {
-                $q->where('owner_id', $owner->id);
-            })->where('status', 'pending')->count();
-
-            $activeOffersCount = Offer::whereHas('workspace', function ($q) use ($owner) {
-                $q->where('owner_id', $owner->id);
-            })->active()->count();
-
-            $topDiscounted = Workspace::query()
-                ->where('owner_id', $owner->id)
-                ->withCount([
-                    'activeOffers as max_discount' => function ($q) {
-                        $q->select(DB::raw('MAX(discount_percent)'));
-                    },
-                ])
-                ->orderByDesc('max_discount')
-                ->take(5)
-                ->get(['id', 'name', 'price_per_hour', 'image_url', 'location']);
-
-            return Inertia::render('Owner/Dashboard', [
-                'stats' => [
-                    'workspaces_count' => $workspacesCount,
-                    'bookings_count' => $bookingsCount,
-                    'pending_count' => $pendingCount,
-                    'active_offers_count' => $activeOffersCount,
-                ],
-                'topDiscounted' => $topDiscounted,
-            ]);
-        })->name('dashboard');
+        Route::get('/dashboard', OwnerDashboardController::class)->name('dashboard');
 
         Route::resource('workspaces', OwnerWorkspaceController::class)
             ->parameters(['workspaces' => 'workspace']);
@@ -132,6 +85,8 @@ Route::middleware(['auth', 'role:user'])
     ->prefix('user')
     ->name('user.')
     ->group(function () {
+        Route::get('/dashboard', UserDashboardController::class)->name('dashboard');
+
         Route::resource('bookings', UserBookingController::class)
             ->parameters(['bookings' => 'booking']);
 
