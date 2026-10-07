@@ -52,4 +52,9 @@ class Booking extends Model
     {
         return $this->hasMany(Payment::class);
     }
+
+    public function ledgerEntries(): HasMany
+    {
+        return $this->hasMany(OwnerLedgerEntry::class);
+    }
 }

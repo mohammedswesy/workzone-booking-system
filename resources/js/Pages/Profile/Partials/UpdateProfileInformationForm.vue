@@ -1,7 +1,9 @@
 <script setup>
 import Button from '@/Components/Ui/Button.vue';
 import Input from '@/Components/Ui/Input.vue';
+import Select from '@/Components/Ui/Select.vue';
 import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 defineProps({
@@ -14,11 +16,18 @@ defineProps({
 });
 
 const { t } = useI18n();
-const user = usePage().props.auth.user;
+const page = usePage();
+const user = page.props.auth.user;
+const role = computed(() => String(page.props.auth?.role || '').toLowerCase());
+const isOwner = computed(() => role.value === 'owner');
 
 const form = useForm({
     name: user.name,
     email: user.email,
+    payout_method: user.payout_method || 'bank_transfer',
+    payout_account_holder: user.payout_account_holder || '',
+    payout_account_identifier: user.payout_account_identifier || '',
+    payout_note: user.payout_note || '',
 });
 </script>
 
@@ -74,6 +83,35 @@ const form = useForm({
                 >
                     {{ t('profile.verificationSent') }}
                 </p>
+            </div>
+
+            <div v-if="isOwner" class="space-y-3 border-t border-wz-border pt-4">
+                <h3 class="font-semibold text-wz-fg">{{ t('profile.payoutTitle') }}</h3>
+                <p class="text-sm text-wz-fg-muted">{{ t('profile.payoutHint') }}</p>
+                <Select id="payout_method" v-model="form.payout_method" :error="form.errors.payout_method">
+                    <template #label>{{ t('payment.method') }}</template>
+                    <option value="jawwal_pay">{{ t('payment.methodJawwal') }}</option>
+                    <option value="bank_transfer">{{ t('payment.methodBank') }}</option>
+                    <option value="other_wallet">{{ t('payment.methodOtherWallet') }}</option>
+                    <option value="cash">{{ t('payment.methodCash') }}</option>
+                </Select>
+                <Input
+                    id="payout_account_holder"
+                    v-model="form.payout_account_holder"
+                    :error="form.errors.payout_account_holder"
+                >
+                    <template #label>{{ t('admin.accountHolder') }}</template>
+                </Input>
+                <Input
+                    id="payout_account_identifier"
+                    v-model="form.payout_account_identifier"
+                    :error="form.errors.payout_account_identifier"
+                >
+                    <template #label>{{ t('admin.accountIdentifier') }}</template>
+                </Input>
+                <Input id="payout_note" v-model="form.payout_note" :error="form.errors.payout_note">
+                    <template #label>{{ t('profile.payoutNote') }}</template>
+                </Input>
             </div>
 
             <div class="flex flex-wrap items-center gap-4 pt-2">

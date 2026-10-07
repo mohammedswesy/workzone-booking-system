@@ -4,6 +4,7 @@ namespace App\Services\Workspaces;
 
 use App\Models\Workspace;
 use App\Models\WorkspaceImage;
+use App\Support\PublicStorageUrl;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -12,11 +13,14 @@ class WorkspaceGalleryService
 {
     public function add(Workspace $workspace, UploadedFile $file, bool $primary = false): WorkspaceImage
     {
-        $path = $file->store('workspaces', 'public');
+        // Always the public disk — never the default/local disk.
+        $path = Storage::disk('public')->putFile('workspaces', $file);
+        app(\App\Services\Media\ImageDerivativeService::class)->ensureForPath($path);
 
         return DB::transaction(function () use ($workspace, $path, $primary) {
             $maxOrder = (int) $workspace->images()->max('sort_order');
 
+            // First uploaded image (or explicit primary) becomes primary automatically.
             if ($primary || ! $workspace->images()->exists()) {
                 $workspace->images()->update(['is_primary' => false]);
                 $primary = true;
@@ -61,9 +65,11 @@ class WorkspaceGalleryService
         DB::transaction(function () use ($image) {
             $workspace = $image->workspace;
             $wasPrimary = $image->is_primary;
+            $path = (string) $image->path;
 
-            $image->deleteFile();
             $image->delete();
+            app(\App\Services\Media\ImageDerivativeService::class)->deleteDerivatives($path);
+            app(\App\Services\Media\SharedImagePathCleaner::class)->deleteIfUnreferenced($path);
 
             if ($wasPrimary) {
                 $next = $workspace->images()->orderBy('sort_order')->first();
@@ -79,10 +85,8 @@ class WorkspaceGalleryService
 
     private function syncLegacyImageUrl(Workspace $workspace, WorkspaceImage $image): void
     {
-        $url = str_starts_with($image->path, 'http') || str_starts_with($image->path, '/storage/')
-            ? $image->path
-            : Storage::disk('public')->url($image->path);
-
-        $workspace->update(['image_url' => $url]);
+        $workspace->update([
+            'image_url' => PublicStorageUrl::fromPath($image->path),
+        ]);
     }
 }

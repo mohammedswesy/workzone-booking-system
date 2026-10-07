@@ -11,12 +11,15 @@ import Select from '@/Components/Ui/Select.vue';
 const props = defineProps({
     offer: { type: Object, required: true },
     workspaces: { type: Array, default: () => [] },
+    venues: { type: Array, default: () => [] },
 });
 
 const { t } = useI18n();
 
 const form = useForm({
+    scope: props.offer.venue_id && !props.offer.workspace_id ? 'venue' : 'unit',
     workspace_id: props.offer.workspace_id,
+    venue_id: props.offer.venue_id,
     title: props.offer.title,
     discount_percent: props.offer.discount_percent,
     starts_at: props.offer.starts_at?.slice?.(0, 10) || props.offer.starts_at,
@@ -29,8 +32,13 @@ const dateOrderInvalid = computed(() => {
     return form.ends_at < form.starts_at;
 });
 
+const canSubmit = computed(() => {
+    if (form.scope === 'unit') return Boolean(form.workspace_id);
+    return Boolean(form.venue_id);
+});
+
 function submit() {
-    if (dateOrderInvalid.value) return;
+    if (dateOrderInvalid.value || !canSubmit.value) return;
     form.put(route('owner.offers.update', props.offer.id));
 }
 </script>
@@ -49,14 +57,38 @@ function submit() {
 
         <form class="wz-surface mx-auto max-w-xl space-y-4 p-5" @submit.prevent="submit">
             <Select
+                id="edit-offer-scope"
+                v-model="form.scope"
+                :error="form.errors.scope"
+                :disabled="form.processing"
+            >
+                <template #label>{{ t('owner.offerScope') }}</template>
+                <option value="unit">{{ t('owner.offerScopeUnit') }}</option>
+                <option value="venue">{{ t('owner.offerScopeVenue') }}</option>
+            </Select>
+
+            <Select
+                v-if="form.scope === 'unit'"
                 id="edit-offer-workspace"
                 :model-value="form.workspace_id ?? ''"
                 :error="form.errors.workspace_id"
                 :disabled="form.processing"
                 @update:model-value="form.workspace_id = Number($event) || null"
             >
-                <template #label>{{ t('bookings.workspace') }}</template>
+                <template #label>{{ t('owner.offerUnit') }}</template>
                 <option v-for="w in workspaces" :key="w.id" :value="w.id">{{ w.name }}</option>
+            </Select>
+
+            <Select
+                v-else
+                id="edit-offer-venue"
+                :model-value="form.venue_id ?? ''"
+                :error="form.errors.venue_id"
+                :disabled="form.processing"
+                @update:model-value="form.venue_id = Number($event) || null"
+            >
+                <template #label>{{ t('owner.offerVenue') }}</template>
+                <option v-for="v in venues" :key="v.id" :value="v.id">{{ v.name }}</option>
             </Select>
 
             <Input
@@ -116,15 +148,12 @@ function submit() {
             <p v-else-if="form.errors.starts_at" class="text-sm text-wz-danger">
                 {{ form.errors.starts_at }}
             </p>
-            <p v-if="form.errors.starts_at && String(form.errors.starts_at).toLowerCase().includes('overlap')" class="text-sm text-wz-danger">
-                {{ t('owner.overlapHint') }}
-            </p>
 
             <div class="flex flex-wrap gap-3">
                 <Button
                     type="submit"
                     variant="primary"
-                    :disabled="form.processing || dateOrderInvalid"
+                    :disabled="form.processing || dateOrderInvalid || !canSubmit"
                 >
                     {{ t('common.save') }}
                 </Button>

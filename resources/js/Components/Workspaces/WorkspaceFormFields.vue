@@ -16,15 +16,9 @@ const props = defineProps({
     idPrefix: { type: String, default: 'ws' },
 });
 
-const emit = defineEmits(['files']);
+const emit = defineEmits(['files', 'new-owner']);
 
 const { t } = useI18n();
-
-const methodOptions = [
-    { value: 'bank_transfer', labelKey: 'payment.methodBank' },
-    { value: 'wallet', labelKey: 'payment.methodWallet' },
-    { value: 'cash', labelKey: 'payment.methodCash' },
-];
 
 function toggleAmenity(id) {
     const key = Number(id);
@@ -32,14 +26,6 @@ function toggleAmenity(id) {
         props.form.amenities = props.form.amenities.filter((a) => a !== key);
     } else {
         props.form.amenities.push(key);
-    }
-}
-
-function toggleMethod(value) {
-    if (props.form.payment_methods.includes(value)) {
-        props.form.payment_methods = props.form.payment_methods.filter((m) => m !== value);
-    } else {
-        props.form.payment_methods.push(value);
     }
 }
 </script>
@@ -55,20 +41,29 @@ function toggleMethod(value) {
             <p class="mt-1 text-wz-fg-muted">{{ t('owner.paymentSetupFormHint') }}</p>
         </div>
 
-        <Select
-            v-if="showOwnerSelect"
-            :id="`${idPrefix}-owner`"
-            :model-value="form.owner_id ?? ''"
-            :error="form.errors.owner_id"
-            :disabled="form.processing"
-            @update:model-value="form.owner_id = $event ? Number($event) : null"
-        >
-            <template #label>{{ t('admin.owner') }}</template>
-            <option value="" disabled>{{ t('admin.selectOwner') }}</option>
-            <option v-for="o in owners" :key="o.id" :value="o.id">
-                {{ o.name }} — {{ o.email }}
-            </option>
-        </Select>
+        <div v-if="showOwnerSelect" class="space-y-2">
+            <Select
+                :id="`${idPrefix}-owner`"
+                :model-value="form.owner_id ?? ''"
+                :error="form.errors.owner_id"
+                :disabled="form.processing"
+                @update:model-value="form.owner_id = $event ? Number($event) : null"
+            >
+                <template #label>{{ t('admin.owner') }}</template>
+                <option value="" disabled>{{ t('admin.selectOwner') }}</option>
+                <option v-for="o in owners" :key="o.id" :value="o.id">
+                    {{ o.name }} — {{ o.email }}
+                </option>
+            </Select>
+            <button
+                type="button"
+                class="text-sm font-medium text-wz-brand hover:underline disabled:opacity-55"
+                :disabled="form.processing"
+                @click="emit('new-owner')"
+            >
+                {{ t('admin.newOwnerAction') }}
+            </button>
+        </div>
 
         <Input
             :id="`${idPrefix}-name`"
@@ -201,43 +196,19 @@ function toggleMethod(value) {
             </label>
         </div>
 
-        <div class="space-y-3 rounded-xl border border-wz-border bg-wz-muted/40 p-4">
-            <div>
-                <p class="text-sm font-medium text-wz-fg">{{ t('owner.paymentInstructions') }}</p>
-                <p class="mt-1 text-xs text-wz-fg-muted">{{ t('owner.paymentInstructionsHint') }}</p>
-                <textarea
-                    v-model="form.payment_instructions"
-                    rows="4"
-                    maxlength="2000"
-                    class="wz-focus mt-2 w-full rounded-xl border border-wz-border bg-wz-elevated px-3 py-2.5 text-sm text-wz-fg disabled:cursor-not-allowed disabled:opacity-55 disabled:text-wz-fg-muted"
-                    :disabled="form.processing"
-                />
-                <p v-if="form.errors.payment_instructions" class="mt-1 text-xs text-wz-danger">
-                    {{ form.errors.payment_instructions }}
-                </p>
-            </div>
-            <div>
-                <p class="mb-2 text-sm font-medium text-wz-fg">{{ t('owner.paymentMethods') }}</p>
-                <div class="flex flex-wrap gap-2">
-                    <label
-                        v-for="m in methodOptions"
-                        :key="m.value"
-                        class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-wz-border bg-wz-elevated px-3 py-2 text-sm text-wz-fg"
-                    >
-                        <input
-                            type="checkbox"
-                            class="h-4 w-4 rounded border-wz-border text-wz-brand disabled:opacity-55"
-                            :checked="form.payment_methods.includes(m.value)"
-                            :disabled="form.processing"
-                            @change="toggleMethod(m.value)"
-                        />
-                        {{ t(m.labelKey) }}
-                    </label>
-                </div>
-                <p v-if="form.errors.payment_methods" class="mt-1 text-xs text-wz-danger">
-                    {{ form.errors.payment_methods }}
-                </p>
-            </div>
+        <div class="space-y-2 rounded-xl border border-wz-border bg-wz-muted/40 p-4">
+            <p class="text-sm font-medium text-wz-fg">{{ t('owner.paymentExtraNote') }}</p>
+            <p class="text-xs text-wz-fg-muted">{{ t('owner.paymentExtraNoteHint') }}</p>
+            <textarea
+                v-model="form.payment_instructions"
+                rows="3"
+                maxlength="2000"
+                class="wz-focus mt-2 w-full rounded-xl border border-wz-border bg-wz-elevated px-3 py-2.5 text-sm text-wz-fg disabled:cursor-not-allowed disabled:opacity-55 disabled:text-wz-fg-muted"
+                :disabled="form.processing"
+            />
+            <p v-if="form.errors.payment_instructions" class="mt-1 text-xs text-wz-danger">
+                {{ form.errors.payment_instructions }}
+            </p>
         </div>
 
         <div>

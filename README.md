@@ -51,9 +51,33 @@ Browser → Laravel (routes, middleware, policies) → Inertia → Vue pages
 
 | Role | Access |
 |------|--------|
-| **User** | Browse `/spaces`, create bookings, view payment instructions, upload proof, manage profile |
-| **Owner** | CRUD workspaces & offers, review bookings, confirm/reject manual payments |
-| **Admin** | Dashboard, users (create owner/admin invitations, suspend/reactivate), workspaces oversight, bookings/reports |
+| **User** | Browse `/spaces` (venues / units), create bookings, view payment instructions, upload proof, manage profile |
+| **Owner** | CRUD **venues** (buildings) and **workspaces** (units) & offers, review bookings, payouts |
+| **Admin** | Dashboard, users, venues/units oversight, bookings/reports, owner transfer (audited) |
+
+**Domain language:** **Venue = building**, **Workspace = unit** (bookable room/desk). See `docs/VENUES_DESIGN.md` and `docs/AUTHORIZATION_MATRIX.md`.
+
+### Availability (phase 13)
+
+- **Source of truth:** `AvailabilityService` (venue timezone, UTC storage). Precedence: pause → unit exception → venue exception → unit weekly hours (when not inheriting) → venue weekly hours.
+- **v1 rule:** a booking must start and end on the same local calendar day and fit inside one open interval (**no midnight crossing**).
+- Deprecated columns `workspaces.opening_time` / `closing_time` remain for rollback but are not read after the backfill migration.
+- Default venue timezone: `Asia/Gaza` (override per venue). Display clocks use `APP_DISPLAY_TIMEZONE`.
+
+### Map (phase 13)
+
+- Coordinates live on the linked `locations` row (`lat` / `lng`). Leaflet is bundled locally (`leaflet` npm + `public/vendor/leaflet` marker icons); **no CDN**.
+- Tile URL / attribution / CSP host: `config/map.php` and `MAP_TILE_*` in `.env`. OSM’s public tile servers are for **light local/demo use only** — configure a keyed provider for production and update `MAP_TILE_HOST` so CSP `img-src` stays precise (no `unsafe-eval`).
+- Public list/map toggle: `/spaces` + `/spaces/map.json` (published venues, public fields only, same filters).
+- **Referrer-Policy** is `strict-origin-when-cross-origin` (see `SecurityHeaders`), so query strings (including near-me coordinates) are not sent to OSM tiles or Google Maps links.
+
+### Near me (phase 14)
+
+- On `/spaces`, any visitor can search by distance: enter lat/lng (smart paste / Maps URL, client-side only), **Use my location** (browser Geolocation API), or **Pick on map**.
+- **Geolocation requires HTTPS in production** (browsers block `getCurrentPosition` on insecure origins except localhost).
+- Distance uses Haversine (km) after a lat/lng bounding-box prefilter. Venues without coordinates are excluded from near-me results only.
+- **Privacy:** visitor coordinates are never written to the database, session, logs, or analytics, and are never sent to third parties. Shareable URLs round to **3 decimal places** (~110 m). Rate limit: `throttle:spaces-catalog` on `/spaces` and `/spaces/map.json`.
+- MySQL index migration (flagged): `2026_10_06_140000_add_locations_lat_lng_index.php` adds `locations_lat_lng_index` on `(lat, lng)`.
 
 **Account rules**
 
@@ -170,11 +194,19 @@ Configure `MAIL_*` in `.env` for real delivery. Comments in `.env.example` docum
 php artisan db:seed
 ```
 
-`DatabaseSeeder` creates demo users, sample workspaces, and pending bookings. Safe for **local/demo only**—never use default passwords in production.
+`DatabaseSeeder` creates demo users, **multi-unit venues**, sample offers, and pending bookings. Safe for **local/demo only**—never use default passwords in production.
 
 ---
 
 ## Running locally
+
+After migrate, create the public storage symlink so workspace gallery images are served:
+
+```bash
+php artisan storage:link
+```
+
+This links `public/storage` → `storage/app/public`. Without it, uploaded workspace images are saved but cards/details cannot load `/storage/...` URLs. Re-run the command if the link is missing after clone or deploy.
 
 **Option A — PHP + Vite (lightweight)**
 
@@ -183,7 +215,7 @@ php artisan serve
 npm run dev
 ```
 
-Visit `http://localhost:8000` (or your `APP_URL`).
+Visit `http://localhost:8000` (or your `APP_URL`). Point the web server document root at `public/` (not the project root) so relative `/storage/...` image URLs resolve.
 
 **Option B — Laravel Sail (Docker)**
 

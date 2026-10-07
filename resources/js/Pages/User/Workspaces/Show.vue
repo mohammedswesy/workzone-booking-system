@@ -6,28 +6,28 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import Badge from '@/Components/Ui/Badge.vue';
 import Button from '@/Components/Ui/Button.vue';
 import PageHeader from '@/Components/Ui/PageHeader.vue';
+import WorkspaceCover from '@/Components/Ui/WorkspaceCover.vue';
+import { workspaceCoverUrl } from '@/utils/workspaceImage';
 
 const props = defineProps({
     workspace: { type: Object, required: true },
+    venue: { type: Object, default: null },
+    units: { type: Array, default: () => [] },
     can_book: { type: Boolean, default: false },
     pending_booking_id: { type: Number, default: null },
 });
 
 const { t } = useI18n();
 
-const images = computed(() => {
+const gallery = computed(() => {
     const list = props.workspace.images || [];
     if (list.length) return list;
-    if (props.workspace.image_url) {
-        return [{ id: 'legacy', url: props.workspace.image_url }];
+    const cover = workspaceCoverUrl(props.workspace);
+    if (cover) {
+        return [{ id: 'legacy', url: cover }];
     }
-    return [{
-        id: 'fallback',
-        url: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?q=80&w=1200&auto=format&fit=crop',
-    }];
+    return [];
 });
-
-const activeImage = computed(() => images.value[0]?.url);
 
 function book() {
     router.visit(route('user.bookings.create', { workspace_id: props.workspace.id }));
@@ -52,10 +52,13 @@ function book() {
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div class="space-y-6">
                 <div class="wz-surface overflow-hidden">
-                    <img :src="activeImage" :alt="workspace.name" class="h-72 w-full object-cover sm:h-96" />
-                    <div v-if="images.length > 1" class="grid grid-cols-4 gap-2 p-3">
+                    <WorkspaceCover
+                        :space="workspace"
+                        img-class="h-72 w-full object-cover sm:h-96"
+                    />
+                    <div v-if="gallery.length > 1" class="grid grid-cols-4 gap-2 p-3">
                         <img
-                            v-for="img in images.slice(0, 4)"
+                            v-for="img in gallery.slice(0, 4)"
                             :key="img.id"
                             :src="img.url"
                             class="h-20 w-full rounded-lg object-cover"

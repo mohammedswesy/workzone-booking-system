@@ -40,5 +40,17 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('payment-proof', function (Request $request) {
             return Limit::perMinute(10)->by(($request->user()?->id ?: $request->ip()).'|proof');
         });
+
+        RateLimiter::for('admin-owners', function (Request $request) {
+            return Limit::perMinute(10)->by(($request->user()?->id ?: $request->ip()).'|admin-owners');
+        });
+
+        RateLimiter::for('forced-password', function (Request $request) {
+            return Limit::perMinute(6)->by(($request->user()?->id ?: $request->ip()).'|forced-password');
+        });
+
+        RateLimiter::for('spaces-catalog', function (Request $request) {
+            return Limit::perMinute(60)->by($request->ip().'|spaces-catalog');
+        });
     }
 }

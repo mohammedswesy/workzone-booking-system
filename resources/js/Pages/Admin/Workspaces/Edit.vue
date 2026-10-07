@@ -1,10 +1,12 @@
 <script setup>
+import { ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/Ui/PageHeader.vue';
 import Button from '@/Components/Ui/Button.vue';
 import WorkspaceFormFields from '@/Components/Workspaces/WorkspaceFormFields.vue';
+import CreateOwnerModal from '@/Components/Admin/CreateOwnerModal.vue';
 
 const props = defineProps({
     workspace: { type: Object, required: true },
@@ -14,9 +16,12 @@ const props = defineProps({
     locations: { type: Array, default: () => [] },
     amenities: { type: Array, default: () => [] },
     owners: { type: Array, default: () => [] },
+    mailDeliverable: { type: Boolean, default: false },
 });
 
 const { t } = useI18n();
+const showOwnerModal = ref(false);
+const ownerOptions = ref([...props.owners]);
 
 function timeValue(value) {
     if (!value) return '';
@@ -44,6 +49,13 @@ const form = useForm({
 
 function onFiles(files) {
     form.images = files;
+}
+
+function onOwnerCreated(owner) {
+    if (!ownerOptions.value.some((o) => o.id === owner.id)) {
+        ownerOptions.value = [...ownerOptions.value, owner];
+    }
+    form.owner_id = owner.id;
 }
 
 function submit() {
@@ -83,13 +95,14 @@ function archiveOrDelete() {
                 :form="form"
                 :locations="locations"
                 :amenities="amenities"
-                :owners="owners"
+                :owners="ownerOptions"
                 :workspace="workspace"
                 :needs-payment-setup="needsPaymentSetup"
                 :booking-mode-locked="bookingModeLocked"
                 show-owner-select
                 id-prefix="admin-edit"
                 @files="onFiles"
+                @new-owner="showOwnerModal = true"
             />
 
             <div v-if="Object.keys(form.errors).length" class="space-y-1 text-sm text-wz-danger">
@@ -108,5 +121,12 @@ function archiveOrDelete() {
                 </Link>
             </div>
         </form>
+
+        <CreateOwnerModal
+            :show="showOwnerModal"
+            :mail-deliverable="mailDeliverable"
+            @close="showOwnerModal = false"
+            @created="onOwnerCreated"
+        />
     </AppLayout>
 </template>

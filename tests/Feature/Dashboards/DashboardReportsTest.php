@@ -48,7 +48,8 @@ it('scopes owner dashboard stats to the owner only', function () {
             ->where('stats.workspaces_count', 1)
             ->where('stats.bookings_count', 3)
             ->where('stats.pending_count', 2)
-            ->where('stats.revenue', '100.00')
+            ->where('stats.available_balance', '0.00')
+            ->where('stats.pending_balance', '100.00')
         );
 });
 
@@ -95,7 +96,7 @@ it('filters admin reports by owner and exports csv', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('kpis.bookings', 1)
-            ->where('topWorkspaces.0.name', 'Alpha')
+            ->where('topWorkspaces.0.name', 'Alpha — Alpha')
         );
 
     $csv = $this->actingAs($admin)

@@ -6,44 +6,39 @@ use App\Enums\PaymentStatus;
 use App\Enums\WorkspaceStatus;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Models\PlatformPaymentMethod;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
-it('requires payment instructions and methods before a workspace can be published', function () {
+it('allows publishing without per-workspace payment setup', function () {
     $owner = User::factory()->owner()->create();
 
     $this->actingAs($owner)
         ->post(route('owner.workspaces.store'), [
-            'name' => 'No Pay Info',
+            'name' => 'Published Free Of Pay Setup',
             'location' => 'Gaza',
             'capacity' => 10,
             'price_per_hour' => 20,
             'status' => WorkspaceStatus::Published->value,
             'payment_instructions' => '',
             'payment_methods' => [],
+            'booking_mode' => 'seat',
+            'opening_time' => '09:00',
+            'closing_time' => '22:00',
         ])
-        ->assertSessionHasErrors(['payment_instructions', 'payment_methods']);
-
-    $this->actingAs($owner)
-        ->post(route('owner.workspaces.store'), [
-            'name' => 'Draft Without Pay',
-            'location' => 'Gaza',
-            'capacity' => 10,
-            'price_per_hour' => 20,
-            'status' => WorkspaceStatus::Draft->value,
-        ])
-        ->assertRedirect(route('owner.workspaces.index'));
+        ->assertRedirect();
 });
 
-it('shows payment instructions only to the booking user', function () {
-    $owner = User::factory()->owner()->create();
-    $workspace = Workspace::factory()->create([
-        'owner_id' => $owner->id,
-        'payment_instructions' => 'SECRET-IBAN-ONLY-FOR-BOOKER',
-        'payment_methods' => ['bank_transfer', 'cash'],
+it('shows platform payment methods to the booking user', function () {
+    $method = PlatformPaymentMethod::factory()->create([
+        'label' => 'Platform IBAN',
+        'account_identifier' => 'PS-PLATFORM',
+        'is_active' => true,
     ]);
+    $owner = User::factory()->owner()->create();
+    $workspace = Workspace::factory()->create(['owner_id' => $owner->id]);
     $booker = User::factory()->userRole()->create();
     $stranger = User::factory()->userRole()->create();
     $booking = Booking::factory()->create([
@@ -58,7 +53,8 @@ it('shows payment instructions only to the booking user', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('User/Bookings/Show')
-            ->where('booking.workspace.payment_instructions', 'SECRET-IBAN-ONLY-FOR-BOOKER')
+            ->where('platformPaymentMethods.0.id', $method->id)
+            ->where('platformPaymentMethods.0.account_identifier', 'PS-PLATFORM')
         );
 
     $this->actingAs($stranger)
@@ -66,41 +62,43 @@ it('shows payment instructions only to the booking user', function () {
         ->assertForbidden();
 });
 
-it('forbids owner A from confirming payment for owner B booking', function () {
+it('forbids owners from confirming payments', function () {
     Storage::fake('local');
 
-    $ownerA = User::factory()->owner()->create();
-    $ownerB = User::factory()->owner()->create();
-    $workspaceB = Workspace::factory()->create(['owner_id' => $ownerB->id]);
+    $owner = User::factory()->owner()->create();
+    $workspace = Workspace::factory()->create(['owner_id' => $owner->id]);
     $user = User::factory()->userRole()->create();
     $booking = Booking::factory()->create([
         'user_id' => $user->id,
-        'workspace_id' => $workspaceB->id,
+        'workspace_id' => $workspace->id,
         'status' => BookingStatus::Pending,
         'payment_status' => PaymentStatus::Pending,
     ]);
     $payment = Payment::create([
         'booking_id' => $booking->id,
         'provider' => PaymentProvider::Manual,
-        'reference' => 'manual-cross-owner-1',
+        'reference' => 'manual-owner-forbid-confirm',
         'amount' => $booking->total_price,
         'currency' => 'USD',
         'status' => PaymentStatus::Pending,
         'proof_path' => 'payment-proofs/x.jpg',
     ]);
 
-    $this->actingAs($ownerA)
-        ->post(route('payments.manual.confirm', $payment))
+    withPasswordConfirmed($this->actingAs($owner))
+        ->post(route('payments.manual.confirm', $payment), [
+            'received_amount' => $payment->amount,
+        ])
         ->assertForbidden();
 
-    expect($payment->fresh()->status)->toBe(PaymentStatus::Pending)
-        ->and($booking->fresh()->payment_status)->toBe(PaymentStatus::Pending);
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Pending);
 });
 
-it('exposes rejection reason to the booking user after owner rejects proof', function () {
+it('exposes rejection reason to the booking user after admin rejects proof', function () {
     Storage::fake('local');
 
+    $method = PlatformPaymentMethod::factory()->create(['is_active' => true]);
     $owner = User::factory()->owner()->create();
+    $admin = User::factory()->admin()->create();
     $workspace = Workspace::factory()->create(['owner_id' => $owner->id]);
     $user = User::factory()->userRole()->create();
     $booking = Booking::factory()->create([
@@ -112,14 +110,15 @@ it('exposes rejection reason to the booking user after owner rejects proof', fun
 
     $this->actingAs($user)
         ->post(route('user.payments.manual.store', $booking), [
-            'method' => 'bank_transfer',
-            'proof' => UploadedFile::fake()->create('receipt.jpg', 200, 'image/jpeg'),
+            'platform_payment_method_id' => $method->id,
+            'transfer_reference' => 'REJ-REF-1',
+            'proof' => UploadedFile::fake()->image('receipt.jpg'),
         ])
         ->assertRedirect();
 
     $payment = Payment::where('booking_id', $booking->id)->firstOrFail();
 
-    $this->actingAs($owner)
+    withPasswordConfirmed($this->actingAs($admin))
         ->post(route('payments.manual.reject', $payment), [
             'reason' => 'Amount does not match the booking total.',
         ])

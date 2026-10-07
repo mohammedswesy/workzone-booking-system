@@ -25,6 +25,7 @@ export function useToast() {
         toasts: state.items,
         success: (message) => push(message, 'success'),
         error: (message) => push(message, 'error'),
+        warning: (message) => push(message, 'warning', 6000),
         dismiss,
     };
 }

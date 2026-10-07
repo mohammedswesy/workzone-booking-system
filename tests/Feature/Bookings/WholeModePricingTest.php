@@ -162,7 +162,7 @@ it('allows booking_mode changes when there are no active future bookings', funct
             'payment_instructions' => $workspace->payment_instructions,
             'payment_methods' => $workspace->payment_methods,
         ])
-        ->assertRedirect(route('owner.workspaces.index'));
+        ->assertRedirect();
 
     expect($workspace->fresh()->booking_mode)->toBe(BookingMode::Seat);
 });

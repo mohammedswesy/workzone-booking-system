@@ -113,7 +113,7 @@ it('prevents removing or demoting the last admin', function () {
 
     expect(User::adminCount())->toBe(1);
 
-    $this->actingAs($admin)
+    withPasswordConfirmed($this->actingAs($admin))
         ->put(route('admin.users.update', $admin), [
             'role' => 'user',
         ])

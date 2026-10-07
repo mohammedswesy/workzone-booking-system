@@ -1,12 +1,22 @@
+import '@fontsource/plus-jakarta-sans/400.css';
+import '@fontsource/plus-jakarta-sans/500.css';
+import '@fontsource/plus-jakarta-sans/600.css';
+import '@fontsource/plus-jakarta-sans/700.css';
+import '@fontsource/ibm-plex-sans-arabic/400.css';
+import '@fontsource/ibm-plex-sans-arabic/500.css';
+import '@fontsource/ibm-plex-sans-arabic/600.css';
+import '@fontsource/ibm-plex-sans-arabic/700.css';
+
 import '../css/app.css';
 import './bootstrap';
 
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import { createApp, h } from 'vue';
+import { createApp, h, defineComponent } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import i18n, { applyDocumentLocale, resolveInitialLocale } from './i18n';
 import { applyTheme, resolveInitialTheme } from './Composables/useTheme';
+import AppErrorBoundary from './Components/Ui/AppErrorBoundary.vue';
 
 const appName = import.meta.env.VITE_APP_NAME || 'WorkZone';
 
@@ -21,7 +31,17 @@ createInertiaApp({
             import.meta.glob('./Pages/**/*.vue'),
         ),
     setup({ el, App, props, plugin }) {
-        return createApp({ render: () => h(App, props) })
+        const Root = defineComponent({
+            name: 'AppRoot',
+            setup() {
+                return () =>
+                    h(AppErrorBoundary, null, {
+                        default: () => h(App, props),
+                    });
+            },
+        });
+
+        return createApp(Root)
             .use(plugin)
             .use(ZiggyVue)
             .use(i18n)

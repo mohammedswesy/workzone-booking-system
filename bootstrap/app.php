@@ -1,8 +1,12 @@
 <?php
 
 use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\EnsureAdminSessionIsFresh;
+use App\Http\Middleware\EnsureAdminTwoFactorEnabled;
+use App\Http\Middleware\EnsurePasswordIsChanged;
 use App\Http\Middleware\PreventAdminIndexing;
 use App\Http\Middleware\RoleMiddleware;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,11 +25,19 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             PreventAdminIndexing::class,
+            SecurityHeaders::class,
+        ]);
+
+        $middleware->encryptCookies(except: [
+            'wz_locale',
         ]);
 
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'active' => EnsureAccountIsActive::class,
+            'password.changed' => EnsurePasswordIsChanged::class,
+            'admin.idle' => EnsureAdminSessionIsFresh::class,
+            'admin.2fa' => EnsureAdminTwoFactorEnabled::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [

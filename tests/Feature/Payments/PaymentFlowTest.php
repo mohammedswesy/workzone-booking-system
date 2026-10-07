@@ -26,18 +26,21 @@ function pendingBookingFor(User $user, ?Workspace $workspace = null): Booking
     ]);
 }
 
-it('accepts manual proof upload and confirms payment via owner', function () {
+it('accepts manual proof upload and confirms payment via admin', function () {
     Storage::fake('local');
 
+    $method = \App\Models\PlatformPaymentMethod::factory()->create(['is_active' => true]);
     $owner = User::factory()->owner()->create();
+    $admin = User::factory()->admin()->create();
     $workspace = Workspace::factory()->create(['owner_id' => $owner->id]);
     $user = User::factory()->userRole()->create();
     $booking = pendingBookingFor($user, $workspace);
 
     $this->actingAs($user)
         ->post(route('user.payments.manual.store', $booking), [
-            'method' => 'bank_transfer',
-            'proof' => UploadedFile::fake()->create('receipt.jpg', 200, 'image/jpeg'),
+            'platform_payment_method_id' => $method->id,
+            'transfer_reference' => 'FLOW-REF-1',
+            'proof' => UploadedFile::fake()->image('receipt.jpg'),
         ])
         ->assertRedirect();
 
@@ -47,8 +50,10 @@ it('accepts manual proof upload and confirms payment via owner', function () {
         ->and($payment->status)->toBe(PaymentStatus::Pending)
         ->and($booking->fresh()->payment_status)->toBe(PaymentStatus::Pending);
 
-    $this->actingAs($owner)
-        ->post(route('payments.manual.confirm', $payment))
+    withPasswordConfirmed($this->actingAs($admin))
+        ->post(route('payments.manual.confirm', $payment), [
+            'received_amount' => $payment->amount,
+        ])
         ->assertRedirect();
 
     expect($payment->fresh()->status)->toBe(PaymentStatus::Paid)

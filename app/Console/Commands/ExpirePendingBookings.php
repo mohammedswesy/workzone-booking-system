@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Enums\BookingStatus;
 use App\Models\Booking;
+use App\Support\AppTimezone;
 use Illuminate\Console\Command;
 
 class ExpirePendingBookings extends Command
@@ -15,7 +16,8 @@ class ExpirePendingBookings extends Command
     public function handle(): int
     {
         $minutes = (int) config('booking.pending_timeout_minutes', 30);
-        $cutoff = now()->subMinutes($minutes);
+        // Use app display clock (Asia/Gaza by default) so expiry aligns with booking wall times.
+        $cutoff = AppTimezone::now()->subMinutes($minutes);
 
         $count = Booking::query()
             ->where('status', BookingStatus::Pending)

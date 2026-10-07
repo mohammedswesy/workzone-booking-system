@@ -45,7 +45,7 @@ it('normalizes legacy placeholder copy to the neutral text', function () {
         ->and($workspace->payment_methods)->toBe([]);
 });
 
-it('does not expose placeholder payment instructions on the booking page', function () {
+it('does not expose workspace payment instructions on the booking page', function () {
     $owner = User::factory()->owner()->create();
     $workspace = Workspace::factory()->create([
         'owner_id' => $owner->id,
@@ -65,24 +65,18 @@ it('does not expose placeholder payment instructions on the booking page', funct
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('User/Bookings/Show')
-            ->where('booking.workspace.payment_instructions', null)
+            ->missing('booking.workspace.payment_instructions')
             ->where('booking.workspace.payment_details_ready', false)
-            ->where('booking.workspace.payment_methods', [])
+            ->where('platformPaymentMethods', [])
         );
 });
 
-it('shows owner dashboard banner for workspaces with placeholder payment instructions', function () {
+it('no longer banners owners about per-workspace payment placeholders', function () {
     $owner = User::factory()->owner()->create();
-    $space = Workspace::factory()->create([
+    Workspace::factory()->create([
         'owner_id' => $owner->id,
         'name' => 'Needs Real Pay Info',
         'payment_instructions' => PaymentInstructionsPlaceholder::EN,
-    ]);
-    Workspace::factory()->create([
-        'owner_id' => $owner->id,
-        'name' => 'Ready Space',
-        'payment_instructions' => "Pay cash to reception.\nAsk for WorkZone booking.",
-        'payment_methods' => ['cash'],
     ]);
 
     $this->actingAs($owner)
@@ -90,8 +84,6 @@ it('shows owner dashboard banner for workspaces with placeholder payment instruc
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Owner/Dashboard')
-            ->has('needsPaymentSetup', 1)
-            ->where('needsPaymentSetup.0.id', $space->id)
-            ->where('needsPaymentSetup.0.name', 'Needs Real Pay Info')
+            ->where('needsPaymentSetup', [])
         );
 });

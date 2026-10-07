@@ -17,11 +17,18 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
+        'commission_percent',
+        'payout_method',
+        'payout_account_holder',
+        'payout_account_identifier',
+        'payout_note',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     protected function casts(): array
@@ -31,7 +38,21 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => Role::class,
             'is_active' => 'boolean',
+            'must_change_password' => 'boolean',
+            'commission_percent' => 'decimal:2',
+            'two_factor_confirmed_at' => 'datetime',
+            'last_seen_at' => 'datetime',
         ];
+    }
+
+    public function ledgerEntries(): HasMany
+    {
+        return $this->hasMany(OwnerLedgerEntry::class, 'owner_id');
+    }
+
+    public function payouts(): HasMany
+    {
+        return $this->hasMany(OwnerPayout::class, 'owner_id');
     }
 
     public function isAdmin(): bool

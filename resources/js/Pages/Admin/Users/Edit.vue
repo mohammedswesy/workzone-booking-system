@@ -9,6 +9,7 @@ import Select from '@/Components/Ui/Select.vue';
 import Input from '@/Components/Ui/Input.vue';
 import Badge from '@/Components/Ui/Badge.vue';
 import ConfirmDialog from '@/Components/Ui/ConfirmDialog.vue';
+import PasswordGeneratorFields from '@/Components/Admin/PasswordGeneratorFields.vue';
 
 const props = defineProps({
     user: Object,
@@ -28,6 +29,13 @@ const form = useForm({
     name: props.user.name,
     phone: props.user.phone || '',
     role: props.user.role ?? 'user',
+});
+
+const passwordForm = useForm({
+    password: '',
+    password_confirmation: '',
+    send_reset_link: false,
+    must_change_password: true,
 });
 
 function submit() {
@@ -57,6 +65,25 @@ function destroyUser() {
 
 function resend() {
     router.post(route('admin.users.resend-invitation', props.user.id), {}, { preserveScroll: true });
+}
+
+function submitPassword() {
+    passwordForm
+        .transform((data) => ({
+            send_reset_link: data.send_reset_link,
+            ...(data.send_reset_link
+                ? {}
+                : {
+                      password: data.password,
+                      password_confirmation: data.password_confirmation,
+                      must_change_password: data.must_change_password,
+                  }),
+        }))
+        .post(route('admin.users.reset-password', props.user.id), {
+            preserveScroll: true,
+            onSuccess: () => passwordForm.reset('password', 'password_confirmation'),
+            onFinish: () => passwordForm.reset('password', 'password_confirmation'),
+        });
 }
 
 async function copyLink() {
@@ -109,6 +136,7 @@ async function copyLink() {
                 <Badge :tone="user.is_active ? 'success' : 'danger'">
                     {{ user.is_active ? t('admin.active') : t('admin.suspended') }}
                 </Badge>
+                <Badge v-if="user.must_change_password" tone="warning">{{ t('admin.mustChangePending') }}</Badge>
                 <Badge v-if="isSelf" tone="accent">{{ t('admin.cannotDeleteSelf') }}</Badge>
             </div>
 
@@ -182,6 +210,58 @@ async function copyLink() {
             <p v-if="hasFinancialHistory" class="text-xs text-wz-fg-muted">
                 {{ t('admin.cannotDeleteWithHistory') }}
             </p>
+        </form>
+
+        <form
+            class="wz-surface mx-auto mt-4 max-w-xl space-y-4 p-5"
+            @submit.prevent="submitPassword"
+        >
+            <h2 class="font-semibold text-wz-fg">{{ t('admin.resetPasswordTitle') }}</h2>
+            <p class="text-sm text-wz-fg-muted">{{ t('admin.resetPasswordHint') }}</p>
+
+            <label class="flex items-start gap-3 rounded-xl border border-wz-border bg-wz-muted/40 px-3 py-3 text-sm text-wz-fg">
+                <input
+                    v-model="passwordForm.send_reset_link"
+                    type="checkbox"
+                    class="mt-1 rounded border-wz-border"
+                    :disabled="passwordForm.processing"
+                />
+                <span>
+                    <span class="font-medium">{{ t('admin.sendResetLinkInstead') }}</span>
+                    <span class="mt-1 block text-xs text-wz-fg-muted">
+                        {{ mailDeliverable ? t('admin.resetLinkWillEmail') : t('admin.resetLinkNeedsMail') }}
+                    </span>
+                </span>
+            </label>
+
+            <template v-if="!passwordForm.send_reset_link">
+                <PasswordGeneratorFields
+                    :password="passwordForm.password"
+                    :password-confirmation="passwordForm.password_confirmation"
+                    :password-error="passwordForm.errors.password"
+                    :confirmation-error="passwordForm.errors.password_confirmation"
+                    :disabled="passwordForm.processing"
+                    id-prefix="reset"
+                    @update:password="passwordForm.password = $event"
+                    @update:password-confirmation="passwordForm.password_confirmation = $event"
+                />
+                <label class="flex items-start gap-3 text-sm text-wz-fg">
+                    <input
+                        v-model="passwordForm.must_change_password"
+                        type="checkbox"
+                        class="mt-1 rounded border-wz-border"
+                        :disabled="passwordForm.processing"
+                    />
+                    <span>
+                        <span class="font-medium">{{ t('admin.mustChangePassword') }}</span>
+                        <span class="mt-1 block text-xs text-wz-fg-muted">{{ t('admin.mustChangePasswordHint') }}</span>
+                    </span>
+                </label>
+            </template>
+
+            <Button type="submit" variant="primary" :disabled="passwordForm.processing">
+                {{ passwordForm.send_reset_link ? t('admin.sendResetLink') : t('admin.setPassword') }}
+            </Button>
         </form>
 
         <ConfirmDialog

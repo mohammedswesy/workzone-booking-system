@@ -29,5 +29,7 @@
         <env name="QUEUE_CONNECTION" value="sync" force="true"/>
         <env name="SESSION_DRIVER" value="array" force="true"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="ADMIN_2FA_ENFORCED" value="false" force="true"/>
+        <env name="AUTH_PASSWORD_TIMEOUT" value="900" force="true"/>
     </php>
 </phpunit>

@@ -1,0 +1,55 @@
+{
+  "note": "FICTIONAL illustrations for demos. Replace with real photos before launch.",
+  "by_unit_type": {
+    "hot_desk": [
+      "coworking",
+      "lounge",
+      "reception"
+    ],
+    "private_office": [
+      "private_office",
+      "reception",
+      "lounge"
+    ],
+    "meeting_room": [
+      "meeting_room",
+      "reception",
+      "lounge"
+    ],
+    "training_room": [
+      "training_room",
+      "coworking",
+      "reception"
+    ],
+    "other": [
+      "coworking",
+      "lounge",
+      "reception"
+    ]
+  },
+  "palettes": [
+    "teal",
+    "sand",
+    "slate"
+  ],
+  "files": [
+    "coworking-teal.jpg",
+    "coworking-sand.jpg",
+    "coworking-slate.jpg",
+    "private_office-teal.jpg",
+    "private_office-sand.jpg",
+    "private_office-slate.jpg",
+    "meeting_room-teal.jpg",
+    "meeting_room-sand.jpg",
+    "meeting_room-slate.jpg",
+    "training_room-teal.jpg",
+    "training_room-sand.jpg",
+    "training_room-slate.jpg",
+    "lounge-teal.jpg",
+    "lounge-sand.jpg",
+    "lounge-slate.jpg",
+    "reception-teal.jpg",
+    "reception-sand.jpg",
+    "reception-slate.jpg"
+  ]
+}

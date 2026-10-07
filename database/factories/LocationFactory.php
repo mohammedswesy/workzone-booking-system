@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Location;
+use App\Support\DemoCityCoordinates;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -14,14 +15,17 @@ class LocationFactory extends Factory
 
     public function definition(): array
     {
-        $city = $this->faker->city();
+        $place = DemoCityCoordinates::random();
+        // Tiny jitter so fixtures do not collide, still inside the city box.
+        $lat = round($place['lat'] + $this->faker->randomFloat(5, -0.015, 0.015), 7);
+        $lng = round($place['lng'] + $this->faker->randomFloat(5, -0.015, 0.015), 7);
 
         return [
-            'name' => $city.' Hub',
-            'address' => $this->faker->streetAddress(),
-            'city' => $city,
-            'lat' => $this->faker->latitude(),
-            'lng' => $this->faker->longitude(),
+            'name' => $place['name'],
+            'address' => $place['address'],
+            'city' => $place['city'],
+            'lat' => $lat,
+            'lng' => $lng,
         ];
     }
 }

@@ -1,16 +1,54 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Button from '@/Components/Ui/Button.vue';
 import ThemeLocaleToggle from '@/Components/Ui/ThemeLocaleToggle.vue';
 import Toast from '@/Components/Ui/Toast.vue';
 import WorkspaceCard from '@/Components/Ui/WorkspaceCard.vue';
 
-defineProps({
+const props = defineProps({
     featured: { type: Array, default: () => [] },
 });
 
 const { t } = useI18n();
+
+const safeFeatured = (props.featured || []).filter((space) => space && space.id);
+
+/** Add or remove public/images paths here — carousel loops automatically. */
+const heroImages = [
+    '/images/home-hero-1.svg',
+    '/images/home-hero-2.svg',
+    '/images/home-hero-3.svg',
+    '/images/home-hero-4.svg',
+];
+
+const activeHeroIndex = ref(0);
+let heroTimer = null;
+
+function stopHeroTimer() {
+    if (heroTimer != null) {
+        window.clearInterval(heroTimer);
+        heroTimer = null;
+    }
+}
+
+function startHeroTimer() {
+    stopHeroTimer();
+    if (heroImages.length < 2) return;
+    heroTimer = window.setInterval(() => {
+        activeHeroIndex.value = (activeHeroIndex.value + 1) % heroImages.length;
+    }, 2000);
+}
+
+function goToHeroSlide(index) {
+    if (index < 0 || index >= heroImages.length) return;
+    activeHeroIndex.value = index;
+    startHeroTimer();
+}
+
+onMounted(startHeroTimer);
+onBeforeUnmount(stopHeroTimer);
 </script>
 
 <template>
@@ -51,12 +89,51 @@ const { t } = useI18n();
                         </Link>
                     </div>
                 </div>
-                <div class="wz-surface overflow-hidden">
-                    <img
-                        src="https://images.unsplash.com/photo-1524758631624-e2822e304c36?q=80&w=1200&auto=format&fit=crop"
-                        alt="WorkZone"
-                        class="min-h-[280px] w-full object-cover"
-                    />
+                <div>
+                    <div class="wz-surface overflow-hidden">
+                        <div class="relative">
+                            <!-- Keeps the same layout height while slides fade on top -->
+                            <img
+                                :src="heroImages[0]"
+                                alt=""
+                                aria-hidden="true"
+                                class="invisible min-h-[280px] w-full object-cover"
+                                width="1200"
+                                height="800"
+                            />
+                            <img
+                                v-for="(src, index) in heroImages"
+                                :key="src"
+                                :src="src"
+                                alt="WorkZone"
+                                class="absolute inset-0 min-h-[280px] w-full object-cover transition-opacity duration-700 ease-in-out"
+                                :class="index === activeHeroIndex ? 'opacity-100' : 'opacity-0'"
+                                width="1200"
+                                height="800"
+                            />
+                        </div>
+                    </div>
+                    <!-- Dots sit below the image (outside overflow) so they stay visible -->
+                    <div
+                        class="mt-3 flex items-center justify-center gap-2.5 sm:mt-4"
+                        data-testid="hero-slider-dots"
+                        role="tablist"
+                        :aria-label="t('brand.name')"
+                    >
+                        <button
+                            v-for="(src, index) in heroImages"
+                            :key="`dot-${src}`"
+                            type="button"
+                            class="h-2.5 w-2.5 shrink-0 rounded-full transition-colors duration-300 sm:h-3 sm:w-3"
+                            :class="index === activeHeroIndex
+                                ? 'bg-[#ef4444] shadow-sm'
+                                : 'bg-neutral-300 hover:bg-neutral-200 dark:bg-white/85 dark:hover:bg-white'"
+                            :aria-label="`${index + 1}`"
+                            :aria-selected="index === activeHeroIndex"
+                            role="tab"
+                            @click="goToHeroSlide(index)"
+                        />
+                    </div>
                 </div>
             </section>
 
@@ -81,7 +158,7 @@ const { t } = useI18n();
                 </div>
             </section>
 
-            <section v-if="featured.length" class="py-10">
+            <section v-if="safeFeatured.length" class="py-10">
                 <div class="mb-6 flex items-end justify-between gap-3">
                     <h2 class="font-display text-2xl font-semibold">{{ t('home.featuredTitle') }}</h2>
                     <Link :href="route('spaces.index')" class="text-sm text-wz-brand hover:underline">
@@ -89,7 +166,11 @@ const { t } = useI18n();
                     </Link>
                 </div>
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <WorkspaceCard v-for="space in featured" :key="space.id" :space="space" />
+                    <WorkspaceCard
+                        v-for="space in safeFeatured"
+                        :key="space.id"
+                        :space="space"
+                    />
                 </div>
             </section>
 

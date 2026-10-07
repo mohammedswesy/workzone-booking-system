@@ -8,42 +8,29 @@ import PageHeader from '@/Components/Ui/PageHeader.vue';
 import Button from '@/Components/Ui/Button.vue';
 import Select from '@/Components/Ui/Select.vue';
 import Input from '@/Components/Ui/Input.vue';
+import { nowDatetimeLocalInDisplayTz } from '@/utils/datetime';
 
 const page = usePage();
 const { t } = useI18n();
+const tz = computed(() => page.props.displayTimezone || 'Asia/Gaza');
 
 const workspace = page.props?.workspace ?? null;
 const workspaces = page.props?.workspaces ?? [];
 
-function defaultStart() {
-    const d = new Date();
-    d.setMinutes(0, 0, 0);
-    d.setHours(d.getHours() + 1);
-    return toLocalInput(d);
-}
-
-function defaultEnd() {
-    const d = new Date();
-    d.setMinutes(0, 0, 0);
-    d.setHours(d.getHours() + 2);
-    return toLocalInput(d);
-}
-
-function toLocalInput(date) {
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
 const form = useForm({
     workspace_id: workspace?.id ?? null,
-    start_at: defaultStart(),
-    end_at: defaultEnd(),
+    start_at: nowDatetimeLocalInDisplayTz(1, tz.value),
+    end_at: nowDatetimeLocalInDisplayTz(2, tz.value),
     seats: 1,
 });
 
 const remainingSeats = ref(null);
 const quoteTotal = ref(null);
 const previewLoading = ref(false);
+const available = ref(true);
+const reason = ref('');
+const nextSlot = ref(null);
+const schedule = ref([]);
 
 const selected = computed(() => {
     if (workspace && workspace.id === form.workspace_id) return workspace;
@@ -71,10 +58,11 @@ const priceUnitLabel = computed(() =>
 const displayTotal = computed(() => {
     if (quoteTotal.value !== null) return Number(quoteTotal.value).toFixed(2);
     const rate = Number(selected.value?.effective_price_per_hour ?? selected.value?.price_per_hour ?? 0);
-    // Whole mode is flat (rate × hours). Seat mode multiplies by seats.
     const billableSeats = isSeatMode.value ? Number(form.seats || 1) : 1;
     return (rate * hours.value * billableSeats).toFixed(2);
 });
+
+const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 async function refreshAvailability() {
     if (!form.workspace_id || !form.start_at || !form.end_at) return;
@@ -92,6 +80,10 @@ async function refreshAvailability() {
         });
         remainingSeats.value = data.remaining_seats;
         quoteTotal.value = data.quote?.final_amount ?? null;
+        available.value = Boolean(data.available);
+        reason.value = data.reason || '';
+        nextSlot.value = data.next_slot || null;
+        schedule.value = data.schedule || selected.value?.schedule || [];
         if (data.booking_mode === 'seat' && form.seats > data.remaining_seats && data.remaining_seats > 0) {
             form.seats = data.remaining_seats;
         }
@@ -101,9 +93,18 @@ async function refreshAvailability() {
     } catch {
         remainingSeats.value = null;
         quoteTotal.value = null;
+        available.value = true;
+        reason.value = '';
+        nextSlot.value = null;
     } finally {
         previewLoading.value = false;
     }
+}
+
+function applyNextSlot() {
+    if (!nextSlot.value?.local_start || !nextSlot.value?.local_end) return;
+    form.start_at = nextSlot.value.local_start.replace(' ', 'T').slice(0, 16);
+    form.end_at = nextSlot.value.local_end.replace(' ', 'T').slice(0, 16);
 }
 
 watch(
@@ -192,16 +193,39 @@ function submit() {
                 {{ t('bookings.wholeSpaceNotice', { n: selected.capacity }) }}
             </p>
 
-            <p v-if="selected" class="text-sm text-wz-fg-muted">
-                {{
-                    t('bookings.openingHours', {
-                        open: selected.opening_time,
-                        close: selected.closing_time,
-                    })
-                }}
-                <span v-if="selected.active_discount_percent">
-                    · {{ t('bookings.offerOff', { n: selected.active_discount_percent }) }}
-                </span>
+            <ul v-if="(schedule.length || selected?.schedule?.length)" class="text-xs text-wz-fg-muted">
+                <li
+                    v-for="day in (schedule.length ? schedule : selected.schedule)"
+                    :key="day.weekday"
+                >
+                    {{ t(`availability.days.${dayNames[day.weekday]}`) }}:
+                    <template v-if="day.is_closed">{{ t('availability.closed') }}</template>
+                    <template v-else>{{ day.opens_at }}–{{ day.closes_at }}</template>
+                </li>
+            </ul>
+
+            <div
+                v-if="!available && reason"
+                class="rounded-xl border border-wz-danger/30 bg-wz-danger/5 px-4 py-3 text-sm text-wz-danger"
+            >
+                <p>{{ reason }}</p>
+                <Button
+                    v-if="nextSlot"
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    class="mt-2"
+                    @click="applyNextSlot"
+                >
+                    {{ t('availability.useNextSlot') }}
+                    <span v-if="nextSlot.local_start" class="ms-1 opacity-80">
+                        ({{ nextSlot.local_start }})
+                    </span>
+                </Button>
+            </div>
+
+            <p v-if="selected?.active_discount_percent" class="text-sm text-wz-fg-muted">
+                {{ t('bookings.offerOff', { n: selected.active_discount_percent }) }}
             </p>
 
             <div class="rounded-xl bg-wz-muted px-4 py-3 text-sm text-wz-fg">
@@ -228,7 +252,7 @@ function submit() {
                 <Button
                     type="submit"
                     variant="primary"
-                    :disabled="form.processing || !form.workspace_id || (isSeatMode && maxSeats < 1)"
+                    :disabled="form.processing || !form.workspace_id || !available || (isSeatMode && maxSeats < 1)"
                 >
                     {{ t('bookings.confirmCreate') }}
                 </Button>

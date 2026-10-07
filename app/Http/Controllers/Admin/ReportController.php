@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Support\Csv\CsvExporter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -27,12 +28,14 @@ class ReportController extends Controller
             ->select('workspace_id', DB::raw('COUNT(*) as cnt'), DB::raw('SUM(total_price) as sum'))
             ->groupBy('workspace_id')
             ->orderByDesc('cnt')
-            ->with('workspace:id,name,owner_id')
+            ->with(['workspace:id,name,owner_id,venue_id', 'workspace.venue:id,name'])
             ->take(10)
             ->get()
             ->map(fn ($r) => [
                 'id' => $r->workspace_id,
-                'name' => $r->workspace?->name ?? '—',
+                'name' => trim(($r->workspace?->venue?->name ? $r->workspace->venue->name.' — ' : '').($r->workspace?->name ?? '—')),
+                'venue' => $r->workspace?->venue?->name,
+                'unit' => $r->workspace?->name,
                 'count' => (int) $r->cnt,
                 'sum' => (float) $r->sum,
             ]);
@@ -88,39 +91,72 @@ class ReportController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
+        CsvExporter::applyLocale($request);
+
         $filters = $this->filters($request);
-        $bookings = $this->bookingQuery($filters)
-            ->with(['workspace:id,name,owner_id', 'user:id,name,email'])
+        $query = $this->bookingQuery($filters)
+            ->with([
+                'workspace:id,name,owner_id,venue_id',
+                'workspace.venue:id,name',
+                'workspace.owner:id,name',
+                'user:id,name,email',
+                'payments' => fn ($q) => $q->latest()->with('platformPaymentMethod:id,type,label'),
+            ])
             ->orderBy('id');
+
+        $headers = [
+            CsvExporter::label('booking_id'),
+            CsvExporter::label('venue'),
+            CsvExporter::label('workspace'),
+            CsvExporter::label('owner'),
+            CsvExporter::label('user'),
+            CsvExporter::label('email'),
+            CsvExporter::label('seats'),
+            CsvExporter::label('booking_status'),
+            CsvExporter::label('payment_status'),
+            CsvExporter::label('payment_method'),
+            CsvExporter::label('payment_reference'),
+            CsvExporter::label('amount'),
+            CsvExporter::label('start_at'),
+            CsvExporter::label('end_at'),
+            CsvExporter::label('created_at'),
+        ];
 
         $filename = 'bookings-report-'.now()->format('Ymd-His').'.csv';
 
-        return response()->streamDownload(function () use ($bookings) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['id', 'workspace', 'owner_id', 'user', 'email', 'status', 'payment_status', 'total_price', 'start_at', 'end_at', 'created_at']);
-
-            $bookings->chunk(200, function ($chunk) use ($out) {
+        return CsvExporter::download($filename, $headers, function (callable $write) use ($query) {
+            $query->chunkById(200, function ($chunk) use ($write) {
                 foreach ($chunk as $booking) {
-                    fputcsv($out, [
+                    /** @var Booking $booking */
+                    $payment = $booking->payments->first();
+                    $methodRaw = $payment?->platformPaymentMethod?->type?->value
+                        ?? $payment?->platformPaymentMethod?->type
+                        ?? data_get($payment?->metadata, 'method')
+                        ?? ($payment?->provider?->value ?? $payment?->provider);
+                    $methodLabel = $payment?->platformPaymentMethod?->label
+                        ?: CsvExporter::statusLabel('method', $methodRaw);
+                    $reference = $payment?->transfer_reference ?: ($payment?->reference ?? '');
+
+                    $write([
                         $booking->id,
+                        $booking->workspace?->venue?->name,
                         $booking->workspace?->name,
-                        $booking->workspace?->owner_id,
+                        $booking->workspace?->owner?->name,
                         $booking->user?->name,
                         $booking->user?->email,
-                        $booking->status?->value ?? $booking->status,
-                        $booking->payment_status?->value ?? $booking->payment_status,
-                        $booking->total_price,
-                        optional($booking->start_at)?->toDateTimeString(),
-                        optional($booking->end_at)?->toDateTimeString(),
-                        optional($booking->created_at)?->toDateTimeString(),
+                        $booking->seats,
+                        CsvExporter::statusLabel('booking', $booking->status),
+                        CsvExporter::statusLabel('payment', $booking->payment_status),
+                        $methodLabel,
+                        $reference,
+                        CsvExporter::formatMoney($booking->total_price),
+                        CsvExporter::formatDateTime($booking->start_at),
+                        CsvExporter::formatDateTime($booking->end_at),
+                        CsvExporter::formatDateTime($booking->created_at),
                     ]);
                 }
             });
-
-            fclose($out);
-        }, $filename, [
-            'Content-Type' => 'text/csv',
-        ]);
+        });
     }
 
     /**

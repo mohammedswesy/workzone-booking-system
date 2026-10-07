@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -11,6 +11,7 @@ import Button from '@/Components/Ui/Button.vue';
 import Input from '@/Components/Ui/Input.vue';
 import Badge from '@/Components/Ui/Badge.vue';
 import ConfirmDialog from '@/Components/Ui/ConfirmDialog.vue';
+import { useNavigationLoading } from '@/Composables/useNavigationLoading';
 
 const props = defineProps({
     bookings: { type: Object, required: true },
@@ -26,24 +27,7 @@ const props = defineProps({
 
 const { t, locale } = useI18n();
 const cancelTarget = ref(null);
-const filterLoading = ref(false);
-
-onMounted(() => {
-    const onStart = () => {
-        filterLoading.value = true;
-    };
-    const onStop = () => {
-        filterLoading.value = false;
-    };
-    router.on('start', onStart);
-    router.on('finish', onStop);
-    router.on('error', onStop);
-    onUnmounted(() => {
-        router.off('start', onStart);
-        router.off('finish', onStop);
-        router.off('error', onStop);
-    });
-});
+const { loading: filterLoading } = useNavigationLoading();
 
 const form = reactive({
     status: props.filters.status || '',

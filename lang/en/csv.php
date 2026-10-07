@@ -1,0 +1,57 @@
+<?php
+
+return [
+    'booking_id' => 'Booking ID',
+    'workspace' => 'Unit',
+    'venue' => 'Venue',
+    'owner' => 'Owner',
+    'user' => 'User',
+    'email' => 'Email',
+    'seats' => 'Seats',
+    'booking_status' => 'Booking status',
+    'payment_status' => 'Payment status',
+    'payment_method' => 'Payment method',
+    'payment_reference' => 'Payment reference',
+    'amount' => 'Amount',
+    'start_at' => 'Start',
+    'end_at' => 'End',
+    'created_at' => 'Created at',
+    'payout_id' => 'Payout ID',
+    'entry_type' => 'Entry type',
+    'currency' => 'Currency',
+    'note' => 'Note',
+    'transfer_reference' => 'Transfer reference',
+
+    'statuses' => [
+        'booking' => [
+            'pending' => 'Pending',
+            'confirmed' => 'Confirmed',
+            'cancelled' => 'Cancelled',
+            'completed' => 'Completed',
+            'no_show' => 'No-show',
+        ],
+        'payment' => [
+            'unpaid' => 'Unpaid',
+            'pending' => 'Payment pending',
+            'paid' => 'Paid',
+            'failed' => 'Failed',
+            'refunded' => 'Refunded',
+        ],
+        'ledger' => [
+            'earning' => 'Earning',
+            'commission' => 'Commission',
+            'refund' => 'Refund',
+            'payout' => 'Payout',
+            'adjustment' => 'Adjustment',
+        ],
+        'method' => [
+            'jawwal_pay' => 'Jawwal Pay',
+            'bank_transfer' => 'Bank transfer',
+            'other_wallet' => 'Other wallet',
+            'cash' => 'Cash',
+            'wallet' => 'Wallet',
+            'manual' => 'Manual',
+            'paypal' => 'PayPal',
+        ],
+    ],
+];

@@ -39,6 +39,10 @@ class HandleInertiaRequests extends Middleware
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'payout_method' => $user->payout_method,
+                    'payout_account_holder' => $user->payout_account_holder,
+                    'payout_account_identifier' => $user->payout_account_identifier,
+                    'payout_note' => $user->payout_note,
                 ] : null,
                 'role' => $role instanceof \BackedEnum ? $role->value : $role,
             ],
@@ -49,7 +53,15 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                'warning' => fn () => $request->session()->get('warning'),
                 'invitation' => fn () => $request->session()->get('invitation'),
+                'availability_conflicts' => fn () => $request->session()->get('availability_conflicts'),
+            ],
+            'displayTimezone' => config('app.display_timezone', 'Asia/Gaza'),
+            'map' => [
+                'tile_url' => config('map.tile_url'),
+                'tile_attribution' => config('map.tile_attribution'),
+                'default_center' => config('map.default_center'),
             ],
             'payments' => [
                 'paypalEnabled' => PaymentsConfig::paypalAvailable(),

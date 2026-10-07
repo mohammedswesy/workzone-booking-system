@@ -204,8 +204,9 @@ it('rejects HTTP seats above remaining capacity', function () {
     $this->actingAs($user)
         ->post(route('user.bookings.store'), [
             'workspace_id' => $workspace->id,
-            'start_at' => '2026-10-10 11:00:00',
-            'end_at' => '2026-10-10 13:00:00',
+            // Wall clocks in Asia/Gaza (UTC+3 on this date) → 10:00–12:00 UTC, overlapping the existing booking.
+            'start_at' => '2026-10-10T13:00',
+            'end_at' => '2026-10-10T15:00',
             'seats' => 2,
         ])
         ->assertSessionHasErrors('seats');

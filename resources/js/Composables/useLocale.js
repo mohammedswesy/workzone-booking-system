@@ -14,6 +14,7 @@ export function useLocale() {
 
         locale.value = next;
         window.localStorage.setItem(LOCALE_KEY, next);
+        document.cookie = `${LOCALE_KEY}=${next};path=/;max-age=31536000;SameSite=Lax`;
         applyDocumentLocale(next);
     }
 

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -12,6 +12,7 @@ import Badge from '@/Components/Ui/Badge.vue';
 import Input from '@/Components/Ui/Input.vue';
 import Select from '@/Components/Ui/Select.vue';
 import ConfirmDialog from '@/Components/Ui/ConfirmDialog.vue';
+import { useNavigationLoading } from '@/Composables/useNavigationLoading';
 
 const props = defineProps({
     users: Object,
@@ -21,6 +22,7 @@ const props = defineProps({
 
 const page = usePage();
 const { t, locale } = useI18n();
+const { loading: filterLoading } = useNavigationLoading();
 
 const form = reactive({
     search: props.filters?.search || '',
@@ -33,24 +35,6 @@ const inviteBanner = computed(
 const copied = ref(false);
 const suspendTarget = ref(null);
 const deleteTarget = ref(null);
-const filterLoading = ref(false);
-
-onMounted(() => {
-    const onStart = () => {
-        filterLoading.value = true;
-    };
-    const onStop = () => {
-        filterLoading.value = false;
-    };
-    router.on('start', onStart);
-    router.on('finish', onStop);
-    router.on('error', onStop);
-    onUnmounted(() => {
-        router.off('start', onStart);
-        router.off('finish', onStop);
-        router.off('error', onStop);
-    });
-});
 
 watch(
     () => form.role,

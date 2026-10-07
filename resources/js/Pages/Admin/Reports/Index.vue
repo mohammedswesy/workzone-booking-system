@@ -20,7 +20,7 @@ const props = defineProps({
     owners: { type: Array, default: () => [] },
 });
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const form = reactive({
     from: props.filters.from || '',
@@ -39,6 +39,7 @@ function exportCsv() {
     Object.entries(form).forEach(([k, v]) => {
         if (v !== '' && v !== null && v !== undefined) params.set(k, v);
     });
+    params.set('locale', locale.value === 'ar' ? 'ar' : 'en');
     window.location.href = `${route('admin.reports.export')}?${params.toString()}`;
 }
 

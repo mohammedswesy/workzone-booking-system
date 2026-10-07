@@ -1,30 +1,26 @@
 <script setup>
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/Ui/PageHeader.vue';
 import Button from '@/Components/Ui/Button.vue';
 import Select from '@/Components/Ui/Select.vue';
 import Input from '@/Components/Ui/Input.vue';
+import { toDatetimeLocalInDisplayTz } from '@/utils/datetime';
 
 const props = defineProps({
     booking: Object,
     workspaces: Array,
 });
 
+const page = usePage();
 const { t } = useI18n();
-
-function toLocalInput(value) {
-    if (!value) return '';
-    const d = new Date(value);
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+const tz = page.props.displayTimezone || 'Asia/Gaza';
 
 const form = useForm({
     workspace_id: props.booking.workspace_id,
-    start_at: toLocalInput(props.booking.start_at),
-    end_at: toLocalInput(props.booking.end_at),
+    start_at: toDatetimeLocalInDisplayTz(props.booking.start_at, tz),
+    end_at: toDatetimeLocalInDisplayTz(props.booking.end_at, tz),
 });
 
 function submit() {

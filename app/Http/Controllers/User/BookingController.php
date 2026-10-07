@@ -12,8 +12,8 @@ use App\Models\Booking;
 use App\Models\Workspace;
 use App\Services\Bookings\SeatAvailability;
 use App\Services\Pricing\BookingPricingService;
+use App\Support\AppTimezone;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -24,6 +24,7 @@ class BookingController extends Controller
         private readonly BookingPricingService $pricing,
         private readonly CreateBooking $createBooking,
         private readonly SeatAvailability $seats,
+        private readonly \App\Services\Availability\AvailabilityService $availability,
     ) {
         $this->authorizeResource(Booking::class, 'booking');
     }
@@ -54,28 +55,34 @@ class BookingController extends Controller
     public function show(Booking $booking)
     {
         $booking->load([
-            'workspace:id,name,location,price_per_hour,payment_instructions,payment_methods',
+            'workspace:id,name,location,price_per_hour',
             'payments' => fn ($q) => $q->latest(),
         ]);
 
         $workspace = $booking->workspace;
-        $detailsReady = $workspace
-            && ! $workspace->hasPlaceholderPaymentInstructions()
-            && filled($workspace->bookerPaymentInstructions());
+        $platformMethods = \App\Models\PlatformPaymentMethod::query()
+            ->active()
+            ->get()
+            ->map->toBookerArray()
+            ->values();
+        $detailsReady = $platformMethods->isNotEmpty();
+        $timeoutMinutes = (int) config('booking.pending_timeout_minutes', 30);
+        $expiresAt = $booking->created_at?->copy()->addMinutes($timeoutMinutes);
 
         return Inertia::render('User/Bookings/Show', [
             'booking' => [
                 ...$booking->toArray(),
+                'expires_at' => $expiresAt?->toIso8601String(),
+                'pending_timeout_minutes' => $timeoutMinutes,
                 'workspace' => $workspace ? [
                     'id' => $workspace->id,
                     'name' => $workspace->name,
                     'location' => $workspace->location,
                     'price_per_hour' => $workspace->price_per_hour,
-                    'payment_instructions' => $detailsReady ? $workspace->bookerPaymentInstructions() : null,
-                    'payment_methods' => $detailsReady ? ($workspace->payment_methods ?? []) : [],
-                    'payment_details_ready' => (bool) $detailsReady,
+                    'payment_details_ready' => $detailsReady,
                 ] : null,
             ],
+            'platformPaymentMethods' => $detailsReady ? $platformMethods : [],
         ]);
     }
 
@@ -85,8 +92,8 @@ class BookingController extends Controller
 
         $workspaces = Workspace::query()
             ->published()
-            ->with('activeOffers')
-            ->select('id', 'name', 'price_per_hour', 'opening_time', 'closing_time', 'location', 'capacity', 'booking_mode')
+            ->with(['activeOffers', 'venue:id,timezone', 'hours', 'venue.hours', 'availabilityExceptions', 'venue.availabilityExceptions'])
+            ->select('id', 'name', 'price_per_hour', 'opening_time', 'closing_time', 'location', 'capacity', 'booking_mode', 'venue_id', 'inherits_venue_hours', 'bookings_paused', 'bookings_paused_note')
             ->orderBy('name')
             ->get()
             ->map(fn (Workspace $ws) => $this->workspacePayload($ws));
@@ -95,8 +102,8 @@ class BookingController extends Controller
         if ($workspaceId) {
             $ws = Workspace::query()
                 ->published()
-                ->with('activeOffers')
-                ->select('id', 'name', 'price_per_hour', 'opening_time', 'closing_time', 'location', 'capacity', 'booking_mode')
+                ->with(['activeOffers', 'venue:id,timezone', 'hours', 'venue.hours', 'availabilityExceptions', 'venue.availabilityExceptions'])
+                ->select('id', 'name', 'price_per_hour', 'opening_time', 'closing_time', 'location', 'capacity', 'booking_mode', 'venue_id', 'inherits_venue_hours', 'bookings_paused', 'bookings_paused_note')
                 ->find($workspaceId);
             if ($ws) {
                 $workspace = $this->workspacePayload($ws);
@@ -118,8 +125,8 @@ class BookingController extends Controller
         $this->createBooking->handle(
             $request->user(),
             $workspace,
-            Carbon::parse($data['start_at']),
-            Carbon::parse($data['end_at']),
+            $this->availability->parseInput($workspace, $data['start_at']),
+            $this->availability->parseInput($workspace, $data['end_at']),
             isset($data['seats']) ? (int) $data['seats'] : 1,
         );
 
@@ -136,25 +143,41 @@ class BookingController extends Controller
             'ignore_booking_id' => ['nullable', 'integer', 'exists:bookings,id'],
         ]);
 
-        $workspace = Workspace::query()->findOrFail($data['workspace_id']);
-        $start = Carbon::parse($data['start_at'])->seconds(0);
-        $end = Carbon::parse($data['end_at'])->seconds(0);
+        $workspace = Workspace::query()->with(['venue', 'hours', 'venue.hours', 'availabilityExceptions', 'venue.availabilityExceptions'])->findOrFail($data['workspace_id']);
+        $start = $this->availability->parseInput($workspace, $data['start_at']);
+        $end = $this->availability->parseInput($workspace, $data['end_at']);
         $ignore = isset($data['ignore_booking_id']) ? (int) $data['ignore_booking_id'] : null;
 
-        $remaining = $this->seats->remainingSeats($workspace, $start, $end, $ignore);
+        $decision = $this->availability->evaluate($workspace, $start, $end);
+        $duration = max(15, (int) $start->diffInMinutes($end));
+        $next = $decision->allowed
+            ? null
+            : $this->availability->nextAvailableSlot($workspace, $duration, $start);
+
+        $remaining = $decision->allowed
+            ? $this->seats->remainingSeats($workspace, $start, $end, $ignore)
+            : 0;
         $resolved = $this->seats->resolveSeats($workspace, isset($data['seats']) ? (int) $data['seats'] : 1);
         $quoteSeats = $workspace->booking_mode === BookingMode::Whole
             ? max(1, (int) $workspace->capacity)
             : min($resolved, max(1, $remaining));
 
-        $quote = $this->pricing->quote($workspace, $start, $end, seats: $quoteSeats);
+        $quote = $decision->allowed
+            ? $this->pricing->quote($workspace, $start, $end, seats: $quoteSeats)
+            : null;
 
         return response()->json([
             'booking_mode' => $workspace->booking_mode?->value ?? BookingMode::Seat->value,
             'capacity' => (int) $workspace->capacity,
             'remaining_seats' => $remaining,
             'seats' => $quoteSeats,
-            'quote' => $quote->toArray(),
+            'quote' => $quote?->toArray(),
+            'available' => $decision->allowed,
+            'reason' => $decision->localizedMessage(),
+            'reason_key' => $decision->reasonKey,
+            'timezone' => $this->availability->timezoneFor($workspace),
+            'next_slot' => $next,
+            'schedule' => $this->availability->weeklySchedule($workspace),
         ]);
     }
 
@@ -180,13 +203,14 @@ class BookingController extends Controller
 
         DB::transaction(function () use ($booking, $data) {
             $workspace = Workspace::whereKey($data['workspace_id'])->lockForUpdate()->firstOrFail();
-            $start = Carbon::parse($data['start_at'])->seconds(0);
-            $end = Carbon::parse($data['end_at'])->seconds(0);
+            $start = AppTimezone::parseInput($data['start_at']);
+            $end = AppTimezone::parseInput($data['end_at']);
             $seats = $this->seats->resolveSeats(
                 $workspace,
                 isset($data['seats']) ? (int) $data['seats'] : (int) $booking->seats,
             );
             $this->seats->assertCanBook($workspace, $start, $end, $seats, $booking->id);
+            $this->createBooking->assertWithinOpeningHours($workspace, $start, $end);
 
             $quote = $this->pricing->quote($workspace, $start, $end, seats: $seats);
 
@@ -219,9 +243,11 @@ class BookingController extends Controller
      */
     private function workspacePayload(Workspace $ws): array
     {
+        $ws->loadMissing(['venue', 'hours', 'venue.hours', 'availabilityExceptions', 'venue.availabilityExceptions']);
         $start = now()->addHour()->seconds(0);
         $end = $start->copy()->addHour();
         $quote = $this->pricing->quote($ws, $start, $end);
+        $schedule = $this->availability->weeklySchedule($ws);
 
         return [
             'id' => $ws->id,
@@ -232,8 +258,11 @@ class BookingController extends Controller
             'price_per_hour' => $quote->pricePerHour,
             'effective_price_per_hour' => $quote->finalAmount,
             'active_discount_percent' => $quote->discountPercent,
-            'opening_time' => $ws->opening_time,
-            'closing_time' => $ws->closing_time,
+            /** @deprecated Prefer schedule from AvailabilityService */
+            'opening_time' => $schedule[0]['opens_at'] ?? $ws->opening_time,
+            'closing_time' => $schedule[0]['closes_at'] ?? $ws->closing_time,
+            'schedule' => $schedule,
+            'timezone' => $this->availability->timezoneFor($ws),
         ];
     }
 }

@@ -5,9 +5,11 @@ namespace App\Models;
 use App\Enums\BookingMode;
 use App\Enums\BookingStatus;
 use App\Enums\WorkspaceStatus;
+use App\Enums\WorkspaceType;
 use App\Services\Offers\ActiveOfferResolver;
 use App\Services\Pricing\BookingPricingService;
 use App\Support\PaymentInstructionsPlaceholder;
+use App\Support\PublicStorageUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,12 +19,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
+/**
+ * Workspace = bookable unit (room/desk) inside a Venue (building).
+ * Public catalog lists venues; bookings always target a workspace id.
+ */
 class Workspace extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'owner_id',
+        'venue_id',
         'name',
         'slug',
         'location',
@@ -30,9 +37,15 @@ class Workspace extends Model
         'description',
         'capacity',
         'booking_mode',
+        'type',
         'price_per_hour',
+        /** @deprecated Prefer venue_hours / unit_hours via AvailabilityService */
         'opening_time',
+        /** @deprecated Prefer venue_hours / unit_hours via AvailabilityService */
         'closing_time',
+        'inherits_venue_hours',
+        'bookings_paused',
+        'bookings_paused_note',
         'image_url',
         'status',
         'featured',
@@ -40,22 +53,36 @@ class Workspace extends Model
         'payment_methods',
     ];
 
-    protected $appends = ['active_discount_percent', 'effective_price_per_hour', 'offer_label'];
+    protected $appends = [
+        'active_discount_percent',
+        'effective_price_per_hour',
+        'offer_label',
+        'cover_image_url',
+    ];
 
     protected function casts(): array
     {
         return [
             'capacity' => 'integer',
             'booking_mode' => BookingMode::class,
+            'type' => WorkspaceType::class,
             'price_per_hour' => 'decimal:2',
             'status' => WorkspaceStatus::class,
             'featured' => 'boolean',
+            'inherits_venue_hours' => 'boolean',
+            'bookings_paused' => 'boolean',
             'payment_methods' => 'array',
         ];
     }
 
+    public function venue(): BelongsTo
+    {
+        return $this->belongsTo(Venue::class);
+    }
+
     public function acceptsPaymentMethod(string $method): bool
     {
+        // Legacy helper — guest checkout uses platform payment methods instead.
         return in_array($method, $this->payment_methods ?? [], true);
     }
 
@@ -64,10 +91,29 @@ class Workspace extends Model
         return PaymentInstructionsPlaceholder::isPlaceholder($this->payment_instructions);
     }
 
+    /**
+     * Per-workspace payment setup banners are retired; platform methods are admin-managed.
+     */
+    public function needsOwnerPaymentSetup(): bool
+    {
+        return false;
+    }
+
     public function hasActiveFutureBookings(): bool
     {
         return $this->bookings()
             ->whereIn('status', BookingStatus::blocking())
+            ->where('end_at', '>', now())
+            ->exists();
+    }
+
+    /**
+     * Future pending/confirmed bookings block archiving (amendment d).
+     */
+    public function hasFuturePendingOrConfirmedBookings(): bool
+    {
+        return $this->bookings()
+            ->whereIn('status', [BookingStatus::Pending, BookingStatus::Confirmed])
             ->where('end_at', '>', now())
             ->exists();
     }
@@ -140,6 +186,18 @@ class Workspace extends Model
         return $this->hasMany(Offer::class);
     }
 
+    public function hours(): HasMany
+    {
+        return $this->hasMany(UnitHour::class)->orderBy('weekday');
+    }
+
+    public function availabilityExceptions(): HasMany
+    {
+        return $this->hasMany(AvailabilityException::class)
+            ->where('scope', 'unit')
+            ->orderBy('starts_on');
+    }
+
     public function activeOffers(): HasMany
     {
         return $this->hasMany(Offer::class)->active();
@@ -147,12 +205,29 @@ class Workspace extends Model
 
     public function images(): HasMany
     {
-        return $this->hasMany(WorkspaceImage::class)->orderBy('sort_order');
+        return $this->hasMany(WorkspaceImage::class)
+            ->orderByDesc('is_primary')
+            ->orderBy('sort_order');
     }
 
     public function primaryImage(): HasMany
     {
         return $this->hasMany(WorkspaceImage::class)->where('is_primary', true);
+    }
+
+    /**
+     * Single cover URL for cards/details/dashboards (relative /storage/... when local).
+     */
+    public function getCoverImageUrlAttribute(): ?string
+    {
+        if ($this->relationLoaded('images') && $this->images->isNotEmpty()) {
+            $primary = $this->images->firstWhere('is_primary', true)
+                ?? $this->images->sortBy('sort_order')->first();
+
+            return $primary?->card_url ?: ($primary?->url ?: null);
+        }
+
+        return PublicStorageUrl::fromPath($this->attributes['image_url'] ?? null);
     }
 
     public function amenities(): BelongsToMany
@@ -202,11 +277,28 @@ class Workspace extends Model
 
     public function openingCarbonOn(Carbon $day): Carbon
     {
-        return Carbon::parse($day->toDateString().' '.$this->opening_time);
+        $service = app(\App\Services\Availability\AvailabilityService::class);
+        $tz = $service->timezoneFor($this);
+        $localDay = $day->copy()->timezone($tz);
+        $intervals = $service->openIntervalsForLocalDay($this, $localDay->toDateString());
+        if ($intervals !== []) {
+            return $intervals[0]['open']->copy();
+        }
+
+        // Fallback for pre-backfill rows (deprecated columns).
+        return Carbon::parse($localDay->toDateString().' '.($this->opening_time ?: '08:00:00'), $tz);
     }
 
     public function closingCarbonOn(Carbon $day): Carbon
     {
-        return Carbon::parse($day->toDateString().' '.$this->closing_time);
+        $service = app(\App\Services\Availability\AvailabilityService::class);
+        $tz = $service->timezoneFor($this);
+        $localDay = $day->copy()->timezone($tz);
+        $intervals = $service->openIntervalsForLocalDay($this, $localDay->toDateString());
+        if ($intervals !== []) {
+            return $intervals[0]['close']->copy();
+        }
+
+        return Carbon::parse($localDay->toDateString().' '.($this->closing_time ?: '22:00:00'), $tz);
     }
 }

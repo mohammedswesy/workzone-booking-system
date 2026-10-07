@@ -23,6 +23,7 @@ defineProps({
     recentBookings: { type: Array, default: () => [] },
     activeOffers: { type: Array, default: () => [] },
     needsPaymentSetup: { type: Array, default: () => [] },
+    missingLocationVenues: { type: Array, default: () => [] },
 });
 
 const { t, locale } = useI18n();
@@ -60,14 +61,34 @@ function statusTone(status) {
             :subtitle="t('owner.dashboardSubtitle')"
         >
             <template #actions>
-                <Link :href="route('owner.workspaces.index')">
+                <Link :href="route('owner.venues.index')">
                     <Button variant="secondary">{{ t('owner.manageSpaces') }}</Button>
+                </Link>
+                <Link :href="route('owner.payouts.index')">
+                    <Button variant="secondary">{{ t('nav.payouts') }}</Button>
                 </Link>
                 <Link :href="route('owner.offers.create')">
                     <Button variant="primary">{{ t('owner.addOffer') }}</Button>
                 </Link>
             </template>
         </PageHeader>
+
+        <div
+            v-if="missingLocationVenues?.length"
+            class="mb-6 rounded-xl border border-wz-warning/40 bg-wz-accent-soft px-4 py-3 text-sm text-wz-fg"
+            role="status"
+            data-testid="owner-missing-location-banner"
+        >
+            <p class="font-semibold">{{ t('venues.locationMissingBanner') }}</p>
+            <p class="mt-1 text-wz-fg-muted">{{ t('venues.locationMissingBannerHint') }}</p>
+            <ul class="mt-2 space-y-1">
+                <li v-for="v in missingLocationVenues" :key="v.id">
+                    <Link :href="route('owner.venues.show', v.slug)" class="font-medium text-wz-brand hover:underline">
+                        {{ v.name }}
+                    </Link>
+                </li>
+            </ul>
+        </div>
 
         <div
             v-if="needsPaymentSetup?.length"
@@ -88,14 +109,18 @@ function statusTone(status) {
             </ul>
         </div>
 
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <StatCard :label="t('owner.statSpaces')" :value="stats?.workspaces_count ?? 0" />
             <StatCard :label="t('owner.statBookings')" :value="stats?.bookings_count ?? 0" />
             <StatCard :label="t('owner.statPending')" :value="stats?.pending_count ?? 0" />
             <StatCard :label="t('owner.statOffers')" :value="stats?.active_offers_count ?? 0" />
             <StatCard
-                :label="t('owner.statRevenue')"
-                :value="`$ ${Number(stats?.revenue ?? 0).toFixed(2)}`"
+                :label="t('owner.availableBalance')"
+                :value="`$ ${Number(stats?.available_balance ?? 0).toFixed(2)}`"
+            />
+            <StatCard
+                :label="t('owner.pendingBalance')"
+                :value="`$ ${Number(stats?.pending_balance ?? 0).toFixed(2)}`"
             />
         </div>
 

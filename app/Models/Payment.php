@@ -14,13 +14,20 @@ class Payment extends Model
 
     protected $fillable = [
         'booking_id',
+        'platform_payment_method_id',
         'provider',
         'reference',
+        'transfer_reference',
         'amount',
         'currency',
         'status',
         'paid_at',
         'proof_path',
+        'proof_sha256',
+        'proof_upload_attempts',
+        'received_amount',
+        'amount_disposition',
+        'amount_note',
         'rejection_reason',
         'metadata',
     ];
@@ -35,6 +42,7 @@ class Payment extends Model
             'provider' => PaymentProvider::class,
             'status' => PaymentStatus::class,
             'amount' => 'decimal:2',
+            'received_amount' => 'decimal:2',
             'paid_at' => 'datetime',
             'metadata' => 'array',
         ];
@@ -43,6 +51,11 @@ class Payment extends Model
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function platformPaymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(PlatformPaymentMethod::class);
     }
 
     public function getProofUrlAttribute(): ?string

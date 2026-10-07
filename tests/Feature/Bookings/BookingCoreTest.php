@@ -157,6 +157,7 @@ it('forbids owners from changing hours or price via update', function () {
         'hours' => 2,
         'total_price' => '200.00',
         'status' => BookingStatus::Pending,
+        'payment_status' => \App\Enums\PaymentStatus::Paid,
     ]);
 
     $this->actingAs($owner)
@@ -211,8 +212,8 @@ it('forbids regular users from creating bookings through policy boundary on stor
     $this->actingAs($owner)
         ->post(route('user.bookings.store'), [
             'workspace_id' => $workspace->id,
-            'start_at' => '2026-10-10 10:00:00',
-            'end_at' => '2026-10-10 11:00:00',
+            'start_at' => '2026-10-10T13:00',
+            'end_at' => '2026-10-10T14:00',
         ])
         ->assertForbidden();
 });

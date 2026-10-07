@@ -14,9 +14,11 @@ class StoreBookingRequest extends FormRequest
 
     public function rules(): array
     {
+        // Wall-clock values are interpreted in the display timezone in the controller.
+        // Do not use after:now here — that would treat naive inputs as UTC.
         return [
             'workspace_id' => ['required', 'integer', 'exists:workspaces,id'],
-            'start_at' => ['required', 'date', 'after:now'],
+            'start_at' => ['required', 'date'],
             'end_at' => ['required', 'date', 'after:start_at'],
             'seats' => ['nullable', 'integer', 'min:1'],
         ];

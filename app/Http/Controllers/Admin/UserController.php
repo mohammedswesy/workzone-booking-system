@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Admin\SendPasswordInvitation;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ResetUserPasswordRequest;
 use App\Models\User;
-use App\Notifications\SetPasswordInvitation;
+use App\Services\Audit\AuditLogger;
 use App\Support\MailConfig;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -17,10 +19,16 @@ use Inertia\Inertia;
 
 class UserController extends Controller
 {
+    public function __construct(
+        private readonly SendPasswordInvitation $invitations,
+        private readonly AuditLogger $audit,
+    ) {}
+
     public function index(Request $request)
     {
         $role = $request->string('role')->toString();
         $search = $request->string('search')->toString();
+        $perPage = max(1, min(100, (int) $request->integer('per_page', 20)));
 
         $users = User::query()
             ->select('id', 'name', 'email', 'phone', 'role', 'is_active', 'created_at')
@@ -33,7 +41,7 @@ class UserController extends Controller
                 });
             })
             ->latest()
-            ->paginate(20)
+            ->paginate($perPage)
             ->withQueryString();
 
         return Inertia::render('Admin/Users/Index', [
@@ -41,6 +49,7 @@ class UserController extends Controller
             'filters' => [
                 'role' => $role,
                 'search' => $search,
+                'per_page' => $perPage,
             ],
             'invitation' => $request->session()->get('invitation'),
         ]);
@@ -50,6 +59,7 @@ class UserController extends Controller
     {
         return Inertia::render('Admin/Users/Create', [
             'mailDeliverable' => MailConfig::isDeliverable(),
+            'created' => null,
         ]);
     }
 
@@ -60,6 +70,8 @@ class UserController extends Controller
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:40'],
             'role' => ['required', Rule::enum(Role::class)],
+        ], [
+            'email.unique' => 'An account with this email already exists.',
         ]);
 
         $role = Role::from($data['role']);
@@ -74,9 +86,10 @@ class UserController extends Controller
         $user->forceFill([
             'role' => $role,
             'is_active' => true,
+            'must_change_password' => false,
         ])->save();
 
-        $invitation = $this->sendPasswordInvitation($user);
+        $invitation = $this->invitations->handle($user);
 
         return redirect()
             ->route('admin.users.index')
@@ -89,7 +102,7 @@ class UserController extends Controller
     public function edit(User $user)
     {
         return Inertia::render('Admin/Users/Edit', [
-            'user' => $user->only('id', 'name', 'email', 'phone', 'role', 'is_active'),
+            'user' => $user->only('id', 'name', 'email', 'phone', 'role', 'is_active', 'must_change_password'),
             'isSelf' => $user->id === request()->user()?->id,
             'isLastAdmin' => $user->isLastAdmin(),
             'hasFinancialHistory' => $user->hasFinancialHistory(),
@@ -120,11 +133,22 @@ class UserController extends Controller
             ]);
         }
 
+        $oldRole = $user->role;
         $user->fill([
             'name' => $data['name'] ?? $user->name,
             'phone' => $data['phone'] ?? $user->phone,
         ]);
         $user->forceFill(['role' => $newRole])->save();
+
+        if ($oldRole !== $newRole) {
+            $this->audit->log(
+                'user.role_change',
+                actor: $actor,
+                subject: $user,
+                oldValues: ['role' => $oldRole instanceof \BackedEnum ? $oldRole->value : $oldRole],
+                newValues: ['role' => $newRole->value],
+            );
+        }
 
         return back()->with('success', 'User updated.');
     }
@@ -170,6 +194,13 @@ class UserController extends Controller
 
         $user->forceFill(['is_active' => false])->save();
 
+        $this->audit->log(
+            'user.suspend',
+            actor: $request->user(),
+            subject: $user,
+            newValues: ['is_active' => false],
+        );
+
         return back()->with('success', 'Account suspended.');
     }
 
@@ -177,12 +208,19 @@ class UserController extends Controller
     {
         $user->forceFill(['is_active' => true])->save();
 
+        $this->audit->log(
+            'user.reactivate',
+            actor: request()->user(),
+            subject: $user,
+            newValues: ['is_active' => true],
+        );
+
         return back()->with('success', 'Account reactivated.');
     }
 
-    public function resendInvitation(Request $request, User $user)
+    public function resendInvitation(User $user)
     {
-        $invitation = $this->sendPasswordInvitation($user);
+        $invitation = $this->invitations->handle($user);
 
         return back()
             ->with('success', $invitation['sent']
@@ -191,48 +229,44 @@ class UserController extends Controller
             ->with('invitation', $invitation);
     }
 
-    /**
-     * Create a one-time invitation token (expires per auth.passwords.invitations.expire = 24h).
-     *
-     * Never write the setup URL to application logs. When mail is not deliverable,
-     * the URL is flashed once to the admin session only (encrypted cookie).
-     *
-     * @return array{sent: bool, setup_url: ?string, email: string, expires_minutes: int}
-     */
-    private function sendPasswordInvitation(User $user): array
+    public function resetPassword(ResetUserPasswordRequest $request, User $user)
     {
-        $token = Password::broker('invitations')->createToken($user);
-        $expiresMinutes = (int) config('auth.passwords.invitations.expire', 1440);
+        if ($request->boolean('send_reset_link')) {
+            if (! MailConfig::isDeliverable()) {
+                throw ValidationException::withMessages([
+                    'send_reset_link' => 'Mail is not configured. Set a password directly instead.',
+                ]);
+            }
 
-        $roleLabel = match ($user->role) {
-            Role::Admin => 'admin',
-            Role::Owner => 'owner',
-            default => 'user',
-        };
+            $status = Password::broker('users')->sendResetLink(
+                ['email' => $user->email]
+            );
 
-        if (MailConfig::isDeliverable()) {
-            $user->notify(new SetPasswordInvitation($token, $roleLabel));
+            if ($status !== Password::RESET_LINK_SENT) {
+                throw ValidationException::withMessages([
+                    'email' => [__($status)],
+                ]);
+            }
 
-            return [
-                'sent' => true,
-                'setup_url' => null,
-                'email' => $user->email,
-                'expires_minutes' => $expiresMinutes,
-            ];
+            return back()->with('success', 'Password reset link was sent.');
         }
 
-        // Avoid Mail::log / array drivers (they would persist the token in plain text).
-        $setupUrl = url(route('password.set', [
-            'token' => $token,
-            'email' => $user->email,
-        ], false));
+        $user->forceFill([
+            'password' => $request->validated('password'),
+            'must_change_password' => $request->boolean('must_change_password', true),
+            'remember_token' => Str::random(60),
+        ])->save();
 
-        return [
-            'sent' => false,
-            'setup_url' => $setupUrl,
-            'email' => $user->email,
-            'expires_minutes' => $expiresMinutes,
-        ];
+        $this->audit->log(
+            'user.password_reset',
+            actor: $request->user(),
+            subject: $user,
+            newValues: [
+                'must_change_password' => $user->must_change_password,
+            ],
+        );
+
+        return back()->with('success', 'Password updated. The user must sign in with the new password.');
     }
 
     private function guardSelfAction(Request $request, User $user, string $action): void

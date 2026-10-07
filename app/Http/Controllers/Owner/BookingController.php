@@ -3,18 +3,21 @@
 namespace App\Http\Controllers\Owner;
 
 use App\Enums\BookingStatus;
-use App\Enums\PaymentProvider;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateBookingStatusRequest;
 use App\Models\Booking;
-use App\Models\Payment;
-use App\Services\Payments\MarkBookingPaid;
+use App\Services\Ledger\OwnerLedgerService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class BookingController extends Controller
 {
+    public function __construct(
+        private readonly OwnerLedgerService $ledger,
+    ) {}
+
     public function index(Request $request)
     {
         $owner = $request->user();
@@ -62,8 +65,25 @@ class BookingController extends Controller
             'payments' => fn ($q) => $q->latest(),
         ]);
 
+        // Owners see payment status only — never proof path/URL or transfer refs.
+        $payments = $booking->payments->map(function ($payment) {
+            return [
+                'id' => $payment->id,
+                'provider' => $payment->provider?->value ?? $payment->provider,
+                'status' => $payment->status?->value ?? $payment->status,
+                'amount' => $payment->amount,
+                'created_at' => $payment->created_at,
+                'paid_at' => $payment->paid_at,
+            ];
+        })->values();
+
+        $booking->unsetRelation('payments');
+
         return Inertia::render('Owner/Bookings/Show', [
-            'booking' => $booking,
+            'booking' => [
+                ...$booking->toArray(),
+                'payments' => $payments,
+            ],
         ]);
     }
 
@@ -82,45 +102,33 @@ class BookingController extends Controller
                 BookingStatus::Confirmed->value,
                 BookingStatus::Completed->value,
                 BookingStatus::Cancelled->value,
+                BookingStatus::NoShow->value,
             ],
         ]);
     }
 
-    public function update(UpdateBookingStatusRequest $request, Booking $booking, MarkBookingPaid $markPaid)
+    public function update(UpdateBookingStatusRequest $request, Booking $booking)
     {
         $status = BookingStatus::from($request->validated('status'));
+        $previous = $booking->status;
 
-        if ($status === BookingStatus::Confirmed) {
-            $payment = $booking->payments()
-                ->where('provider', PaymentProvider::Manual)
-                ->latest()
-                ->first();
-
-            if (! $payment) {
-                $payment = Payment::create([
-                    'booking_id' => $booking->id,
-                    'provider' => PaymentProvider::Manual,
-                    'reference' => 'manual-confirm-'.$booking->id.'-'.uniqid(),
-                    'amount' => $booking->total_price,
-                    'currency' => config('payments.currency', 'USD'),
-                    'status' => PaymentStatus::Pending,
-                    'metadata' => ['source' => 'owner_manual_confirmation'],
-                ]);
-            }
-
-            if ($payment->status !== PaymentStatus::Paid) {
-                $markPaid->handle($payment, [
-                    'confirmed_by' => $request->user()->id,
-                    'source' => 'owner_manual_confirmation',
-                ]);
-            }
-
-            return back()->with('success', 'تم تأكيد الحجز بعد التحقق اليدوي من الدفع.');
+        if ($status === BookingStatus::Confirmed && $booking->payment_status !== PaymentStatus::Paid) {
+            throw ValidationException::withMessages([
+                'status' => 'Booking can only be confirmed after the platform payment is paid.',
+            ]);
         }
 
         $booking->update(['status' => $status]);
 
-        return back()->with('success', 'تم تحديث حالة الحجز.');
+        if ($status === BookingStatus::Completed) {
+            $this->ledger->postCompletionEntries($booking->fresh());
+        }
+
+        if ($status === BookingStatus::Cancelled && $previous !== BookingStatus::Cancelled) {
+            $this->ledger->postRefundReversal($booking->fresh());
+        }
+
+        return back()->with('success', 'Booking status updated.');
     }
 
     public function destroy(Request $request, Booking $booking)
@@ -130,8 +138,9 @@ class BookingController extends Controller
         $booking->update([
             'status' => BookingStatus::Cancelled,
         ]);
+        $this->ledger->postRefundReversal($booking->fresh());
 
         return redirect()->route('owner.bookings.index')
-            ->with('success', 'تم إلغاء الحجز.');
+            ->with('success', 'Booking cancelled.');
     }
 }

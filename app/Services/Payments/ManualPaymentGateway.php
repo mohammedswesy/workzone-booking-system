@@ -7,66 +7,112 @@ use App\Enums\PaymentProvider;
 use App\Enums\PaymentStatus;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Rules\TransferReferenceRule;
+use App\Services\Audit\AuditLogger;
+use App\Services\Media\SecureImageStore;
+use App\Support\AppTimezone;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 class ManualPaymentGateway implements PaymentGateway
 {
+    public const MAX_PROOF_ATTEMPTS_PER_BOOKING = 8;
+
     public function __construct(
         private readonly MarkBookingPaid $markPaid,
+        private readonly PaymentStateMachine $states,
+        private readonly SecureImageStore $images,
+        private readonly AuditLogger $audit,
     ) {}
 
     public function initiate(Booking $booking, array $payload = []): PaymentResult
     {
-        $method = (string) ($payload['method'] ?? '');
-        $workspace = $booking->workspace()->first() ?? $booking->workspace;
+        $methodId = (int) ($payload['platform_payment_method_id'] ?? 0);
+        $transferReference = trim((string) ($payload['transfer_reference'] ?? ''));
 
-        if (! $workspace || ! $workspace->acceptsPaymentMethod($method)) {
+        /** @var \App\Models\PlatformPaymentMethod|null $method */
+        $method = \App\Models\PlatformPaymentMethod::query()
+            ->active()
+            ->whereKey($methodId)
+            ->first();
+
+        if (! $method) {
             throw ValidationException::withMessages([
-                'method' => 'This payment method is not accepted for this workspace.',
+                'platform_payment_method_id' => 'Select a valid platform payment method.',
             ]);
         }
+
+        $type = $method->type instanceof PaymentMethod
+            ? $method->type
+            : PaymentMethod::from((string) $method->type);
 
         /** @var UploadedFile|null $proof */
         $proof = $payload['proof'] ?? null;
-        $isCash = $method === PaymentMethod::Cash->value;
 
-        if (! $isCash && ! $proof instanceof UploadedFile) {
+        $requiresReference = $type->requiresReference();
+        if ($requiresReference || $transferReference !== '') {
+            validator(
+                ['transfer_reference' => $transferReference],
+                ['transfer_reference' => [new TransferReferenceRule($method->id, required: $requiresReference)]],
+            )->validate();
+        }
+
+        $attemptCount = Payment::query()->where('booking_id', $booking->id)->count();
+        if ($attemptCount >= self::MAX_PROOF_ATTEMPTS_PER_BOOKING) {
             throw ValidationException::withMessages([
-                'proof' => 'Payment proof file is required for this method.',
+                'proof' => 'Too many payment proof attempts for this booking.',
             ]);
         }
 
-        $path = $proof instanceof UploadedFile
-            ? $proof->store('payment-proofs', 'local')
-            : null;
+        $stored = null;
+        $reuseWarning = null;
+        if ($proof instanceof UploadedFile) {
+            $stored = $this->images->store($proof, 'payment-proofs', 'local');
+            $reuse = Payment::query()
+                ->where('proof_sha256', $stored['sha256'])
+                ->where('booking_id', '!=', $booking->id)
+                ->exists();
+            if ($reuse) {
+                $reuseWarning = 'This proof image matches a file already used on another booking.';
+            }
+        }
 
         $payment = Payment::create([
             'booking_id' => $booking->id,
+            'platform_payment_method_id' => $method->id,
             'provider' => PaymentProvider::Manual,
             'reference' => 'manual-'.$booking->id.'-'.uniqid(),
+            'transfer_reference' => $transferReference !== '' ? $transferReference : null,
             'amount' => $booking->total_price,
             'currency' => config('payments.currency', 'USD'),
             'status' => PaymentStatus::Pending,
-            'proof_path' => $path,
+            'proof_path' => $stored['path'] ?? null,
+            'proof_sha256' => $stored['sha256'] ?? null,
+            'proof_upload_attempts' => $attemptCount + 1,
             'rejection_reason' => null,
             'metadata' => [
-                'method' => $method,
+                'method' => $type->value,
+                'method_label' => $method->label,
                 'original_name' => $proof?->getClientOriginalName(),
                 'uploaded_by' => $payload['user_id'] ?? null,
+                'proof_reuse_warning' => $reuseWarning,
             ],
         ]);
 
         $booking->update(['payment_status' => PaymentStatus::Pending]);
 
-        return new PaymentResult(
-            payment: $payment,
-            message: $isCash && ! $path
-                ? 'Cash payment noted. Waiting for owner confirmation.'
-                : 'Proof uploaded. Waiting for owner confirmation.',
-        );
+        $message = $type->isCash() && ! $stored
+            ? 'Cash payment noted. Waiting for admin confirmation.'
+            : 'Payment submitted. Waiting for admin confirmation.';
+
+        if ($reuseWarning) {
+            $message .= ' Warning: '.$reuseWarning;
+        }
+
+        return new PaymentResult(payment: $payment, message: $message);
     }
 
     public function confirm(Payment $payment, array $payload = []): PaymentResult
@@ -75,13 +121,12 @@ class ManualPaymentGateway implements PaymentGateway
             throw new RuntimeException('Only manual payments can be confirmed here.');
         }
 
-        if ($payment->status === PaymentStatus::Paid) {
-            return new PaymentResult($payment, message: 'Already paid.');
-        }
-
         $payment = $this->markPaid->handle($payment, [
             'confirmed_by' => $payload['confirmed_by'] ?? null,
-            'confirmed_at' => now()->toIso8601String(),
+            'confirmed_by_role' => 'admin',
+            'received_amount' => $payload['received_amount'] ?? $payment->amount,
+            'amount_disposition' => $payload['amount_disposition'] ?? null,
+            'amount_note' => $payload['amount_note'] ?? null,
         ]);
 
         return new PaymentResult($payment, message: 'Payment confirmed.');
@@ -93,27 +138,46 @@ class ManualPaymentGateway implements PaymentGateway
             throw new RuntimeException('Only manual payments can be rejected here.');
         }
 
-        if ($payment->status === PaymentStatus::Paid) {
-            throw ValidationException::withMessages([
-                'payment' => 'Paid payments cannot be rejected.',
+        $fresh = DB::transaction(function () use ($payment, $reason, $rejectedBy) {
+            /** @var Payment $locked */
+            $locked = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->status === PaymentStatus::Paid) {
+                throw ValidationException::withMessages([
+                    'payment' => 'Paid payments cannot be rejected.',
+                ]);
+            }
+
+            $this->states->assertCanTransition($locked->status, PaymentStatus::Failed);
+
+            $rejectedAt = AppTimezone::now();
+
+            $locked->update([
+                'status' => PaymentStatus::Failed,
+                'rejection_reason' => $reason,
+                'metadata' => array_merge($locked->metadata ?? [], [
+                    'rejected_by' => $rejectedBy,
+                    'rejected_at' => AppTimezone::utcIso($rejectedAt),
+                ]),
             ]);
-        }
 
-        $payment->update([
-            'status' => PaymentStatus::Failed,
-            'rejection_reason' => $reason,
-            'metadata' => array_merge($payment->metadata ?? [], [
-                'rejected_by' => $rejectedBy,
-                'rejected_at' => now()->toIso8601String(),
-            ]),
-        ]);
+            $locked->booking?->update([
+                'payment_status' => PaymentStatus::Unpaid,
+            ]);
 
-        $payment->booking?->update([
-            'payment_status' => PaymentStatus::Unpaid,
-        ]);
+            $this->audit->log(
+                'payment.reject',
+                actor: request()->user(),
+                subject: $locked,
+                oldValues: ['status' => PaymentStatus::Pending->value],
+                newValues: ['status' => PaymentStatus::Failed->value, 'reason' => $reason],
+            );
+
+            return $locked->fresh();
+        });
 
         return new PaymentResult(
-            payment: $payment->fresh(),
+            payment: $fresh,
             message: 'Payment proof rejected.',
         );
     }

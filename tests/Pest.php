@@ -41,7 +41,13 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Attach a fresh password-confirmation timestamp for routes using `password.confirm`.
+ *
+ * @param  \Illuminate\Foundation\Testing\TestCase|\Illuminate\Tests\TestCase  $test
+ * @return \Illuminate\Foundation\Testing\TestCase
+ */
+function withPasswordConfirmed($test)
 {
-    // ..
+    return $test->withSession(['auth.password_confirmed_at' => time()]);
 }

@@ -2,60 +2,38 @@
 
 namespace App\Http\Controllers\Owner;
 
+use App\Actions\Venues\CreateVenueWithUnit;
 use App\Enums\BookingMode;
 use App\Enums\WorkspaceStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreWorkspaceRequest;
 use App\Http\Requests\UpdateWorkspaceRequest;
-use App\Models\Amenity;
-use App\Models\Location;
 use App\Models\Workspace;
 use App\Models\WorkspaceImage;
 use App\Services\Workspaces\WorkspaceGalleryService;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 
+/**
+ * Legacy owner workspace routes.
+ * GET list/create redirect to venues; store/update still work for unit CRUD + tests.
+ */
 class WorkspaceController extends Controller
 {
     public function __construct(
         private readonly WorkspaceGalleryService $gallery,
+        private readonly CreateVenueWithUnit $createVenueWithUnit,
     ) {
         $this->authorizeResource(Workspace::class, 'workspace');
     }
 
     public function index(Request $request)
     {
-        $owner = $request->user();
-        $q = $request->input('search');
-        $perPage = (int) ($request->input('per_page') ?? 9);
-
-        $spaces = Workspace::query()
-            ->where('owner_id', $owner->id)
-            ->with([
-                'place:id,name,city',
-                'images' => fn ($img) => $img->orderBy('sort_order')->limit(1),
-                'amenities:id,name',
-            ])
-            ->when($q, fn ($query) => $query->where(fn ($w) => $w->where('name', 'like', "%{$q}%")
-                ->orWhere('location', 'like', "%{$q}%")
-                ->orWhere('description', 'like', "%{$q}%")
-            ))
-            ->latest()
-            ->paginate($perPage)
-            ->withQueryString();
-
-        return Inertia::render('Owner/Workspaces/Index', [
-            'spaces' => $spaces,
-            'filters' => ['search' => $q, 'per_page' => $perPage],
-        ]);
+        return redirect()->route('owner.venues.index');
     }
 
     public function create()
     {
-        return Inertia::render('Owner/Workspaces/Create', [
-            'locations' => Location::query()->orderBy('name')->get(['id', 'name', 'city']),
-            'amenities' => Amenity::query()->orderBy('name')->get(['id', 'name', 'slug']),
-        ]);
+        return redirect()->route('owner.venues.create');
     }
 
     public function store(StoreWorkspaceRequest $request)
@@ -65,7 +43,7 @@ class WorkspaceController extends Controller
         $data['status'] = $data['status'] ?? WorkspaceStatus::Published->value;
         $data['booking_mode'] = $data['booking_mode'] ?? BookingMode::Seat->value;
 
-        $workspace = Workspace::create($data);
+        $workspace = $this->createVenueWithUnit->handle($data);
 
         if ($request->filled('amenities')) {
             $workspace->amenities()->sync($request->input('amenities', []));
@@ -79,24 +57,19 @@ class WorkspaceController extends Controller
             $this->gallery->add($workspace, $file, primary: ! $request->hasFile('image') && $index === 0);
         }
 
-        return redirect()->route('owner.workspaces.index')->with('success', 'Workspace created.');
+        return redirect()
+            ->route('owner.venues.show', $workspace->venue)
+            ->with('success', 'Venue and unit created.');
     }
 
     public function edit(Workspace $workspace)
     {
-        $workspace->load([
-            'images' => fn ($q) => $q->orderBy('sort_order'),
-            'amenities:id,name',
-            'place:id,name,city',
-        ]);
+        $workspace->loadMissing('venue');
+        if ($workspace->venue) {
+            return redirect()->route('owner.venues.units.edit', [$workspace->venue, $workspace]);
+        }
 
-        return Inertia::render('Owner/Workspaces/Edit', [
-            'workspace' => $workspace,
-            'needsPaymentSetup' => $workspace->hasPlaceholderPaymentInstructions(),
-            'bookingModeLocked' => $workspace->hasActiveFutureBookings(),
-            'locations' => Location::query()->orderBy('name')->get(['id', 'name', 'city']),
-            'amenities' => Amenity::query()->orderBy('name')->get(['id', 'name', 'slug']),
-        ]);
+        return redirect()->route('owner.venues.index');
     }
 
     public function update(UpdateWorkspaceRequest $request, Workspace $workspace)
@@ -116,11 +89,24 @@ class WorkspaceController extends Controller
             $this->gallery->add($workspace, $file);
         }
 
-        return redirect()->route('owner.workspaces.index')->with('success', 'Workspace updated.');
+        $workspace->loadMissing('venue');
+
+        return redirect()
+            ->route(
+                $workspace->venue
+                    ? 'owner.venues.show'
+                    : 'owner.venues.index',
+                $workspace->venue ?: []
+            )
+            ->with('success', 'Unit updated.');
     }
 
     public function destroy(Workspace $workspace)
     {
+        if ($workspace->hasFuturePendingOrConfirmedBookings()) {
+            return back()->with('error', 'Cannot archive a unit with future pending or confirmed bookings.');
+        }
+
         if ($workspace->bookings()->exists()) {
             $workspace->update(['status' => WorkspaceStatus::Archived]);
 

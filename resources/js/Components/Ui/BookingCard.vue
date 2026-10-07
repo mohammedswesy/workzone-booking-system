@@ -1,9 +1,10 @@
 <script setup>
 import { computed } from 'vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import Badge from './Badge.vue';
 import Button from './Button.vue';
+import { formatInDisplayTz } from '@/utils/datetime';
 
 const props = defineProps({
     booking: { type: Object, required: true },
@@ -11,7 +12,9 @@ const props = defineProps({
 
 const emit = defineEmits(['cancel']);
 
+const page = usePage();
 const { t, locale } = useI18n();
+const tz = computed(() => page.props.displayTimezone || 'Asia/Gaza');
 
 const statusTone = computed(() => {
     const map = {
@@ -40,16 +43,9 @@ const canCancel = computed(() =>
 );
 
 function formatDate(value) {
-    if (!value) return '—';
-    try {
-        return new Date(value).toLocaleString(locale.value === 'ar' ? 'ar' : 'en', {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-        });
-    } catch {
-        return value;
-    }
+    return formatInDisplayTz(value, locale.value, tz.value);
 }
+
 
 function money(value) {
     return `$ ${Number(value ?? 0).toFixed(2)}`;

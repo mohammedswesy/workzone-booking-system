@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class Offer extends Model
 {
@@ -15,6 +16,7 @@ class Offer extends Model
     protected $fillable = [
         'owner_id',
         'workspace_id',
+        'venue_id',
         'title',
         'discount_percent',
         'starts_at',
@@ -35,6 +37,11 @@ class Offer extends Model
     public function workspace(): BelongsTo
     {
         return $this->belongsTo(Workspace::class);
+    }
+
+    public function venue(): BelongsTo
+    {
+        return $this->belongsTo(Venue::class);
     }
 
     public function owner(): BelongsTo
@@ -61,7 +68,11 @@ class Offer extends Model
         $end = $this->ends_at;
 
         return static::query()
-            ->where('workspace_id', $this->workspace_id)
+            ->when(
+                $this->workspace_id,
+                fn (Builder $q) => $q->where('workspace_id', $this->workspace_id),
+                fn (Builder $q) => $q->where('venue_id', $this->venue_id)->whereNull('workspace_id'),
+            )
             ->when($this->exists, fn (Builder $q) => $q->whereKeyNot($this->id))
             ->where('is_active', true)
             ->where(function (Builder $q) use ($start, $end) {
@@ -88,15 +99,29 @@ class Offer extends Model
 
     protected static function booted(): void
     {
-        static::creating(function (Offer $offer) {
-            if (empty($offer->owner_id) && ! empty($offer->workspace_id)) {
+        static::saving(function (Offer $offer) {
+            $hasUnit = filled($offer->workspace_id);
+            $hasVenue = filled($offer->venue_id);
+            if ($hasUnit === $hasVenue) {
+                throw ValidationException::withMessages([
+                    'scope' => 'Offer must target exactly one of unit or venue.',
+                ]);
+            }
+
+            if ($hasUnit && empty($offer->owner_id)) {
                 $offer->owner_id = Workspace::where('id', $offer->workspace_id)->value('owner_id');
             }
-        });
 
-        static::updating(function (Offer $offer) {
-            if ($offer->isDirty('workspace_id')) {
+            if ($hasVenue && empty($offer->owner_id)) {
+                $offer->owner_id = Venue::where('id', $offer->venue_id)->value('owner_id');
+            }
+
+            if ($offer->isDirty('workspace_id') && $hasUnit) {
                 $offer->owner_id = Workspace::where('id', $offer->workspace_id)->value('owner_id');
+            }
+
+            if ($offer->isDirty('venue_id') && $hasVenue) {
+                $offer->owner_id = Venue::where('id', $offer->venue_id)->value('owner_id');
             }
         });
     }

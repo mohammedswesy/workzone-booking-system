@@ -5,6 +5,7 @@ use App\Enums\PaymentProvider;
 use App\Enums\PaymentStatus;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Models\PlatformPaymentMethod;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Http\UploadedFile;
@@ -14,6 +15,7 @@ it('stores payment proofs on the private local disk', function () {
     Storage::fake('local');
     Storage::fake('public');
 
+    $method = PlatformPaymentMethod::factory()->create(['is_active' => true]);
     $owner = User::factory()->owner()->create();
     $workspace = Workspace::factory()->create(['owner_id' => $owner->id]);
     $user = User::factory()->userRole()->create();
@@ -26,8 +28,9 @@ it('stores payment proofs on the private local disk', function () {
 
     $this->actingAs($user)
         ->post(route('user.payments.manual.store', $booking), [
-            'method' => 'bank_transfer',
-            'proof' => UploadedFile::fake()->create('receipt.jpg', 200, 'image/jpeg'),
+            'platform_payment_method_id' => $method->id,
+            'transfer_reference' => 'PROOF-STORE-1',
+            'proof' => UploadedFile::fake()->image('receipt.jpg'),
         ])
         ->assertRedirect();
 
@@ -39,7 +42,7 @@ it('stores payment proofs on the private local disk', function () {
         ->and($payment->proof_url)->toBe(route('payments.proof.show', $payment));
 });
 
-it('allows booking user, workspace owner, and admin to download payment proof', function () {
+it('allows booking user and admin to download payment proof but not the owner', function () {
     Storage::fake('local');
 
     $owner = User::factory()->owner()->create();
@@ -72,7 +75,7 @@ it('allows booking user, workspace owner, and admin to download payment proof', 
 
     $this->actingAs($owner)
         ->get(route('payments.proof.show', $payment))
-        ->assertOk();
+        ->assertForbidden();
 
     $this->actingAs($admin)
         ->get(route('payments.proof.show', $payment))
@@ -118,7 +121,6 @@ it('forbids guests and unrelated users from downloading payment proof', function
         ->get(route('payments.proof.show', $payment))
         ->assertForbidden();
 
-    // Private disk proofs must not be publicly served via /storage.
     $publicStorage = $this->get('/storage/'.$path);
     expect($publicStorage->status())->toBeIn([403, 404]);
 });

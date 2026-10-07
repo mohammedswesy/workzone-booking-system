@@ -2,46 +2,36 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\Role;
+use App\Actions\Venues\CreateVenueWithUnit;
 use App\Enums\WorkspaceStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreWorkspaceRequest;
 use App\Http\Requests\UpdateWorkspaceRequest;
-use App\Models\Amenity;
-use App\Models\Location;
-use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Workspaces\WorkspaceGalleryService;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 
+/**
+ * Legacy admin workspace routes.
+ * GET list/create redirect to venues; store/update still create/update units.
+ */
 class WorkspaceController extends Controller
 {
     public function __construct(
         private readonly WorkspaceGalleryService $gallery,
+        private readonly CreateVenueWithUnit $createVenueWithUnit,
     ) {
         $this->authorizeResource(Workspace::class, 'workspace');
     }
 
     public function index(Request $request)
     {
-        $q = $request->input('search');
-        $spaces = Workspace::when($q, fn ($query) => $query->where(fn ($w) => $w->where('name', 'like', "%{$q}%")
-            ->orWhere('location', 'like', "%{$q}%")
-            ->orWhere('description', 'like', "%{$q}%")
-        ))
-            ->with(['owner:id,name', 'place:id,name,city', 'amenities:id,name'])
-            ->latest()->paginate(20)->withQueryString();
-
-        return Inertia::render('Admin/Workspaces/Index', [
-            'spaces' => $spaces,
-            'filters' => ['search' => $q],
-        ]);
+        return redirect()->route('admin.venues.index');
     }
 
     public function create()
     {
-        return Inertia::render('Admin/Workspaces/Create', $this->formProps());
+        return redirect()->route('admin.venues.create');
     }
 
     public function store(StoreWorkspaceRequest $request)
@@ -49,7 +39,7 @@ class WorkspaceController extends Controller
         $data = collect($request->validated())->except(['image', 'images', 'amenities'])->all();
         $data['status'] = $data['status'] ?? WorkspaceStatus::Published->value;
 
-        $workspace = Workspace::create($data);
+        $workspace = $this->createVenueWithUnit->handle($data);
 
         if ($request->filled('amenities')) {
             $workspace->amenities()->sync($request->input('amenities', []));
@@ -64,25 +54,18 @@ class WorkspaceController extends Controller
         }
 
         return redirect()
-            ->route('admin.workspaces.index')
-            ->with('success', 'Workspace created for the selected owner.');
+            ->route('admin.venues.show', $workspace->venue)
+            ->with('success', 'Venue and unit created for the selected owner.');
     }
 
     public function edit(Workspace $workspace)
     {
-        $workspace->load([
-            'images' => fn ($q) => $q->orderBy('sort_order'),
-            'amenities:id,name',
-            'place:id,name,city',
-            'owner:id,name,email',
-        ]);
+        $workspace->loadMissing('venue');
+        if ($workspace->venue) {
+            return redirect()->route('admin.venues.units.edit', [$workspace->venue, $workspace]);
+        }
 
-        return Inertia::render('Admin/Workspaces/Edit', array_merge($this->formProps(), [
-            'workspace' => $workspace,
-            'needsPaymentSetup' => $workspace->hasPlaceholderPaymentInstructions(),
-            'bookingModeLocked' => $workspace->hasActiveFutureBookings(),
-            'hasBookings' => $workspace->bookings()->exists(),
-        ]));
+        return redirect()->route('admin.venues.index');
     }
 
     public function update(UpdateWorkspaceRequest $request, Workspace $workspace)
@@ -102,41 +85,33 @@ class WorkspaceController extends Controller
             $this->gallery->add($workspace, $file);
         }
 
+        $workspace->loadMissing('venue');
+
         return redirect()
-            ->route('admin.workspaces.index')
-            ->with('success', 'Workspace updated.');
+            ->route(
+                $workspace->venue ? 'admin.venues.show' : 'admin.venues.index',
+                $workspace->venue ?: []
+            )
+            ->with('success', 'Unit updated.');
     }
 
     public function destroy(Workspace $workspace)
     {
+        if ($workspace->hasFuturePendingOrConfirmedBookings()) {
+            return back()->with('error', 'Cannot archive a unit with future pending or confirmed bookings.');
+        }
+
         if ($workspace->bookings()->exists()) {
             $workspace->update(['status' => WorkspaceStatus::Archived]);
 
-            return back()->with('success', 'Workspace archived because it has bookings.');
+            return back()->with('success', 'Unit archived because it has bookings.');
         }
 
         foreach ($workspace->images as $image) {
             $this->gallery->delete($image);
         }
-
         $workspace->delete();
 
-        return back()->with('success', 'Workspace deleted.');
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function formProps(): array
-    {
-        return [
-            'locations' => Location::query()->orderBy('name')->get(['id', 'name', 'city']),
-            'amenities' => Amenity::query()->orderBy('name')->get(['id', 'name', 'slug']),
-            'owners' => User::query()
-                ->where('role', Role::Owner)
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name', 'email']),
-        ];
+        return back()->with('success', 'Unit deleted.');
     }
 }

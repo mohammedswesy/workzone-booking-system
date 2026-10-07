@@ -109,7 +109,7 @@ function confirmDelete() {
                         </Badge>
                     </div>
                     <p class="text-sm text-wz-fg-muted">
-                        {{ o.workspace?.name }} · {{ o.discount_percent }}%
+                        {{ o.venue?.name || o.workspace?.name || '—' }} · {{ o.discount_percent }}%
                     </p>
                     <p class="text-sm text-wz-fg-muted">
                         {{ formatDate(o.starts_at) }} — {{ formatDate(o.ends_at) }}
@@ -132,7 +132,7 @@ function confirmDelete() {
                         <tr>
                             <th class="px-3 py-2 text-start">#</th>
                             <th class="px-3 py-2 text-start">{{ t('owner.offerTitle') }}</th>
-                            <th class="px-3 py-2 text-start">{{ t('bookings.workspace') }}</th>
+                            <th class="px-3 py-2 text-start">{{ t('owner.offerVenue') }} / {{ t('owner.offerUnit') }}</th>
                             <th class="px-3 py-2 text-start">{{ t('owner.discount') }}</th>
                             <th class="px-3 py-2 text-start">{{ t('owner.period') }}</th>
                             <th class="px-3 py-2 text-start">{{ t('owner.status') }}</th>
@@ -143,7 +143,7 @@ function confirmDelete() {
                         <tr v-for="o in offers.data" :key="o.id" class="border-t border-wz-border">
                             <td class="px-3 py-2 text-wz-fg">{{ o.id }}</td>
                             <td class="px-3 py-2 font-medium text-wz-fg">{{ o.title }}</td>
-                            <td class="px-3 py-2 text-wz-fg">{{ o.workspace?.name ?? '—' }}</td>
+                            <td class="px-3 py-2 text-wz-fg">{{ o.venue?.name || o.workspace?.name || '—' }}</td>
                             <td class="px-3 py-2 text-wz-fg">{{ o.discount_percent }}%</td>
                             <td class="px-3 py-2 text-wz-fg-muted">
                                 {{ formatDate(o.starts_at) }} — {{ formatDate(o.ends_at) }}

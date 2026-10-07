@@ -3,32 +3,33 @@
 namespace App\Http\Controllers\Owner;
 
 use App\Enums\BookingStatus;
-use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Offer;
-use App\Models\Payment;
+use App\Models\Venue;
 use App\Models\Workspace;
+use App\Services\Ledger\OwnerLedgerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
+    public function __construct(
+        private readonly OwnerLedgerService $ledger,
+    ) {}
+
     public function __invoke(Request $request)
     {
-        $ownerId = $request->user()->id;
+        $owner = $request->user();
+        $ownerId = $owner->id;
+        $balances = $this->ledger->balancesFor($owner);
 
         $workspaceIds = Workspace::query()
             ->where('owner_id', $ownerId)
             ->pluck('id');
 
         $bookingsQuery = Booking::query()->whereIn('workspace_id', $workspaceIds);
-
-        $revenue = Payment::query()
-            ->where('status', PaymentStatus::Paid)
-            ->whereHas('booking', fn ($q) => $q->whereIn('workspace_id', $workspaceIds))
-            ->sum('amount');
 
         $topWorkspaces = Booking::query()
             ->select('workspace_id', DB::raw('COUNT(*) as bookings_count'), DB::raw('SUM(total_price) as revenue'))
@@ -62,15 +63,11 @@ class DashboardController extends Controller
             ->limit(5)
             ->get(['id', 'workspace_id', 'title', 'discount_percent', 'starts_at', 'ends_at', 'is_active']);
 
-        $needsPaymentSetup = Workspace::query()
+        $missingLocationVenues = Venue::query()
             ->where('owner_id', $ownerId)
-            ->get(['id', 'name', 'payment_instructions', 'status'])
-            ->filter(fn (Workspace $ws) => $ws->hasPlaceholderPaymentInstructions())
-            ->map(fn (Workspace $ws) => [
-                'id' => $ws->id,
-                'name' => $ws->name,
-            ])
-            ->values();
+            ->withoutCoordinates()
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug', 'status']);
 
         return Inertia::render('Owner/Dashboard', [
             'stats' => [
@@ -81,12 +78,17 @@ class DashboardController extends Controller
                     ->where('owner_id', $ownerId)
                     ->active()
                     ->count(),
-                'revenue' => number_format((float) $revenue, 2, '.', ''),
+                'available_balance' => $balances['available'],
+                'pending_balance' => $balances['pending'],
+                'ledger_balance' => $balances['balance'],
+                'venues_without_coordinates' => $missingLocationVenues->count(),
             ],
+            'balances' => $balances,
             'topWorkspaces' => $topWorkspaces,
             'recentBookings' => $recentBookings,
             'activeOffers' => $activeOffers,
-            'needsPaymentSetup' => $needsPaymentSetup,
+            'needsPaymentSetup' => [],
+            'missingLocationVenues' => $missingLocationVenues,
         ]);
     }
 }

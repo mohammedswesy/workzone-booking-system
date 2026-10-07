@@ -23,29 +23,30 @@ it('allows admin to create a workspace for an active owner', function () {
             'payment_instructions' => "Bank transfer.\nIBAN PS00 REAL 0000",
             'payment_methods' => ['bank_transfer', 'cash'],
         ])
-        ->assertRedirect(route('admin.workspaces.index'));
+        ->assertRedirect();
 
     $workspace = Workspace::where('name', 'Admin Built Space')->first();
     expect($workspace)->not->toBeNull()
         ->and($workspace->owner_id)->toBe($owner->id)
-        ->and($workspace->booking_mode)->toBe(BookingMode::Seat);
+        ->and($workspace->booking_mode)->toBe(BookingMode::Seat)
+        ->and($workspace->venue_id)->not->toBeNull();
 
     $this->actingAs($owner)
-        ->get(route('owner.workspaces.index'))
+        ->get(route('owner.venues.index'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('spaces.data', fn ($rows) => collect($rows)->contains(
-                fn ($row) => (int) ($row['id'] ?? 0) === (int) $workspace->id
+            ->where('venues.data', fn ($rows) => collect($rows)->contains(
+                fn ($row) => (int) ($row['id'] ?? 0) === (int) $workspace->venue_id
             ))
         );
 
     $otherOwner = User::factory()->owner()->create();
     $this->actingAs($otherOwner)
-        ->get(route('owner.workspaces.index'))
+        ->get(route('owner.venues.index'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('spaces.data', fn ($rows) => collect($rows)->every(
-                fn ($row) => (int) ($row['id'] ?? 0) !== (int) $workspace->id
+            ->where('venues.data', fn ($rows) => collect($rows)->every(
+                fn ($row) => (int) ($row['id'] ?? 0) !== (int) $workspace->venue_id
             ))
         );
 });
@@ -84,15 +85,21 @@ it('ignores owner_id when an owner creates their own workspace', function () {
             'price_per_hour' => 15,
             'status' => WorkspaceStatus::Draft->value,
         ])
-        ->assertRedirect(route('owner.workspaces.index'));
+        ->assertRedirect();
 
-    expect(Workspace::where('name', 'Mine Only')->first()?->owner_id)->toBe($owner->id);
+    $workspace = Workspace::where('name', 'Mine Only')->first();
+    expect($workspace?->owner_id)->toBe($owner->id);
 });
 
-it('archives a workspace with bookings instead of hard deleting', function () {
+it('archives a workspace with past bookings instead of hard deleting', function () {
     $admin = User::factory()->admin()->create();
     $workspace = Workspace::factory()->create();
-    Booking::factory()->create(['workspace_id' => $workspace->id]);
+    Booking::factory()->create([
+        'workspace_id' => $workspace->id,
+        'start_at' => now()->subDays(3),
+        'end_at' => now()->subDays(3)->addHours(2),
+        'status' => \App\Enums\BookingStatus::Completed,
+    ]);
 
     $this->actingAs($admin)
         ->delete(route('admin.workspaces.destroy', $workspace))

@@ -1,0 +1,57 @@
+<?php
+
+return [
+    'booking_id' => 'رقم الحجز',
+    'workspace' => 'الوحدة',
+    'venue' => 'المكان',
+    'owner' => 'المالك',
+    'user' => 'المستخدم',
+    'email' => 'البريد الإلكتروني',
+    'seats' => 'المقاعد',
+    'booking_status' => 'حالة الحجز',
+    'payment_status' => 'حالة الدفع',
+    'payment_method' => 'طريقة الدفع',
+    'payment_reference' => 'مرجع الدفع',
+    'amount' => 'المبلغ',
+    'start_at' => 'البداية',
+    'end_at' => 'النهاية',
+    'created_at' => 'تاريخ الإنشاء',
+    'payout_id' => 'رقم الصرف',
+    'entry_type' => 'نوع القيد',
+    'currency' => 'العملة',
+    'note' => 'ملاحظة',
+    'transfer_reference' => 'مرجع التحويل',
+
+    'statuses' => [
+        'booking' => [
+            'pending' => 'معلّق',
+            'confirmed' => 'مؤكد',
+            'cancelled' => 'ملغى',
+            'completed' => 'مكتمل',
+            'no_show' => 'لم يحضر',
+        ],
+        'payment' => [
+            'unpaid' => 'غير مدفوع',
+            'pending' => 'بانتظار الدفع',
+            'paid' => 'مدفوع',
+            'failed' => 'فشل',
+            'refunded' => 'مسترد',
+        ],
+        'ledger' => [
+            'earning' => 'ربح',
+            'commission' => 'عمولة',
+            'refund' => 'استرداد',
+            'payout' => 'صرف',
+            'adjustment' => 'تعديل',
+        ],
+        'method' => [
+            'jawwal_pay' => 'جوال باي',
+            'bank_transfer' => 'تحويل بنكي',
+            'other_wallet' => 'محفظة أخرى',
+            'cash' => 'نقدًا',
+            'wallet' => 'محفظة',
+            'manual' => 'يدوي',
+            'paypal' => 'PayPal',
+        ],
+    ],
+];

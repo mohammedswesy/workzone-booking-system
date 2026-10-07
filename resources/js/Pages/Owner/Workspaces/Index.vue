@@ -10,6 +10,7 @@ import Button from '@/Components/Ui/Button.vue';
 import Input from '@/Components/Ui/Input.vue';
 import Badge from '@/Components/Ui/Badge.vue';
 import ConfirmDialog from '@/Components/Ui/ConfirmDialog.vue';
+import WorkspaceCover from '@/Components/Ui/WorkspaceCover.vue';
 
 const props = defineProps({
     spaces: { type: Object, required: true },
@@ -46,14 +47,6 @@ function confirmDelete() {
             deleteTarget.value = null;
         },
     });
-}
-
-function cover(space) {
-    return (
-        space.images?.[0]?.url ||
-        space.image_url ||
-        'https://images.unsplash.com/photo-1524758631624-e2822e304c36?q=80&w=800&auto=format&fit=crop'
-    );
 }
 
 function statusLabel(status) {
@@ -116,7 +109,7 @@ function statusLabel(status) {
                 :key="s.id"
                 class="wz-surface flex flex-col overflow-hidden"
             >
-                <img :src="cover(s)" :alt="s.name" class="h-36 w-full object-cover" />
+                <WorkspaceCover :space="s" img-class="h-36 w-full object-cover" />
                 <div class="flex flex-1 flex-col gap-2 p-4">
                     <div class="flex flex-wrap items-center gap-2">
                         <h3 class="font-display text-lg font-semibold text-wz-fg">{{ s.name }}</h3>

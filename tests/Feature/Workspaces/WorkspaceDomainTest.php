@@ -96,13 +96,18 @@ it('stores uploaded gallery images with strict validation and primary flag', fun
         ],
     ]);
 
-    $response->assertRedirect(route('owner.workspaces.index'));
+    $response->assertRedirect();
 
     $workspace = Workspace::where('name', 'Gallery Space')->first();
     expect($workspace)->not->toBeNull()
         ->and($workspace->images()->count())->toBe(2)
         ->and($workspace->images()->where('is_primary', true)->count())->toBe(1)
-        ->and($workspace->image_url)->not->toBeNull();
+        ->and($workspace->image_url)->toStartWith('/storage/workspaces/')
+        ->and($workspace->cover_image_url)->toStartWith('/storage/workspaces/');
+
+    foreach ($workspace->images as $image) {
+        Storage::disk('public')->assertExists($image->path);
+    }
 });
 
 it('rejects invalid upload mime types', function () {

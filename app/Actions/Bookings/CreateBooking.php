@@ -7,8 +7,10 @@ use App\Enums\PaymentStatus;
 use App\Models\Booking;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Availability\AvailabilityService;
 use App\Services\Bookings\SeatAvailability;
 use App\Services\Pricing\BookingPricingService;
+use App\Support\AppTimezone;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +21,7 @@ class CreateBooking
     public function __construct(
         private readonly BookingPricingService $pricing,
         private readonly SeatAvailability $seats,
+        private readonly AvailabilityService $availability,
     ) {}
 
     public function handle(
@@ -28,8 +31,21 @@ class CreateBooking
         CarbonInterface $endAt,
         ?int $requestedSeats = 1,
     ): Booking {
-        $start = Carbon::parse($startAt)->seconds(0);
-        $end = Carbon::parse($endAt)->seconds(0);
+        // Callers pass UTC instants (already converted from venue-timezone wall clocks).
+        $start = Carbon::parse($startAt)->utc()->seconds(0);
+        $end = Carbon::parse($endAt)->utc()->seconds(0);
+
+        if ($start->lte(AppTimezone::now())) {
+            throw ValidationException::withMessages([
+                'start_at' => 'The start time must be in the future.',
+            ]);
+        }
+
+        if ($end->lte($start)) {
+            throw ValidationException::withMessages([
+                'end_at' => 'The end time must be after the start time.',
+            ]);
+        }
 
         return DB::transaction(function () use ($user, $workspace, $start, $end, $requestedSeats) {
             /** @var Workspace $locked */
@@ -38,7 +54,7 @@ class CreateBooking
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $this->assertWithinOpeningHours($locked, $start, $end);
+            $this->availability->assertBookable($locked, $start, $end);
 
             $seats = $this->seats->resolveSeats($locked, $requestedSeats);
             $this->seats->assertCanBook($locked, $start, $end, $seats);
@@ -60,21 +76,11 @@ class CreateBooking
         });
     }
 
-    private function assertWithinOpeningHours(Workspace $workspace, Carbon $start, Carbon $end): void
+    /**
+     * @deprecated Use AvailabilityService::assertBookable — kept for call-site compatibility.
+     */
+    public function assertWithinOpeningHours(Workspace $workspace, Carbon $startUtc, Carbon $endUtc): void
     {
-        if ($start->toDateString() !== $end->toDateString()) {
-            throw ValidationException::withMessages([
-                'end_at' => 'Bookings must start and end on the same day.',
-            ]);
-        }
-
-        $open = Carbon::parse($start->toDateString().' '.$workspace->opening_time);
-        $close = Carbon::parse($start->toDateString().' '.$workspace->closing_time);
-
-        if ($start->lt($open) || $end->gt($close)) {
-            throw ValidationException::withMessages([
-                'start_at' => 'Booking must be within workspace opening hours ('.$open->format('H:i').'–'.$close->format('H:i').').',
-            ]);
-        }
+        $this->availability->assertBookable($workspace, $startUtc, $endUtc);
     }
 }

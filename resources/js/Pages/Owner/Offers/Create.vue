@@ -10,12 +10,15 @@ import Select from '@/Components/Ui/Select.vue';
 
 const props = defineProps({
     workspaces: { type: Array, default: () => [] },
+    venues: { type: Array, default: () => [] },
 });
 
 const { t } = useI18n();
 
 const form = useForm({
+    scope: 'unit',
     workspace_id: props.workspaces[0]?.id ?? null,
+    venue_id: props.venues[0]?.id ?? null,
     title: '',
     discount_percent: 10,
     starts_at: new Date().toISOString().slice(0, 10),
@@ -28,8 +31,13 @@ const dateOrderInvalid = computed(() => {
     return form.ends_at < form.starts_at;
 });
 
+const canSubmit = computed(() => {
+    if (form.scope === 'unit') return Boolean(form.workspace_id);
+    return Boolean(form.venue_id);
+});
+
 function submit() {
-    if (dateOrderInvalid.value) return;
+    if (dateOrderInvalid.value || !canSubmit.value) return;
     form.post(route('owner.offers.store'));
 }
 </script>
@@ -48,14 +56,38 @@ function submit() {
 
         <form class="wz-surface mx-auto max-w-xl space-y-4 p-5" @submit.prevent="submit">
             <Select
+                id="offer-scope"
+                v-model="form.scope"
+                :error="form.errors.scope"
+                :disabled="form.processing"
+            >
+                <template #label>{{ t('owner.offerScope') }}</template>
+                <option value="unit">{{ t('owner.offerScopeUnit') }}</option>
+                <option value="venue">{{ t('owner.offerScopeVenue') }}</option>
+            </Select>
+
+            <Select
+                v-if="form.scope === 'unit'"
                 id="offer-workspace"
                 :model-value="form.workspace_id ?? ''"
                 :error="form.errors.workspace_id"
                 :disabled="form.processing"
                 @update:model-value="form.workspace_id = Number($event) || null"
             >
-                <template #label>{{ t('bookings.workspace') }}</template>
+                <template #label>{{ t('owner.offerUnit') }}</template>
                 <option v-for="w in workspaces" :key="w.id" :value="w.id">{{ w.name }}</option>
+            </Select>
+
+            <Select
+                v-else
+                id="offer-venue"
+                :model-value="form.venue_id ?? ''"
+                :error="form.errors.venue_id"
+                :disabled="form.processing"
+                @update:model-value="form.venue_id = Number($event) || null"
+            >
+                <template #label>{{ t('owner.offerVenue') }}</template>
+                <option v-for="v in venues" :key="v.id" :value="v.id">{{ v.name }}</option>
             </Select>
 
             <Input
@@ -121,7 +153,7 @@ function submit() {
 
             <div v-if="Object.keys(form.errors).length" class="space-y-1 text-sm text-wz-danger">
                 <div v-for="(m, k) in form.errors" :key="k">
-                    <template v-if="k !== 'starts_at' && k !== 'ends_at'">{{ m }}</template>
+                    <template v-if="!['starts_at', 'ends_at'].includes(k)">{{ m }}</template>
                 </div>
             </div>
 
@@ -129,7 +161,7 @@ function submit() {
                 <Button
                     type="submit"
                     variant="primary"
-                    :disabled="form.processing || dateOrderInvalid || !form.workspace_id"
+                    :disabled="form.processing || dateOrderInvalid || !canSubmit"
                 >
                     {{ t('common.save') }}
                 </Button>

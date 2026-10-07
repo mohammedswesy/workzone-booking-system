@@ -1,51 +1,63 @@
 <script setup>
-import { computed, ref } from 'vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/Ui/PageHeader.vue';
 import Button from '@/Components/Ui/Button.vue';
 import Badge from '@/Components/Ui/Badge.vue';
+import Input from '@/Components/Ui/Input.vue';
 import ConfirmDialog from '@/Components/Ui/ConfirmDialog.vue';
+import { formatInDisplayTz } from '@/utils/datetime';
 
 const props = defineProps({
     booking: { type: Object, required: true },
+    platformPaymentMethods: { type: Array, default: () => [] },
 });
 
+const page = usePage();
 const { t, locale } = useI18n();
-
+const tz = computed(() => page.props.displayTimezone || 'Asia/Gaza');
 const showCancel = ref(false);
 const cancelling = ref(false);
+const copiedKey = ref('');
+const now = ref(Date.now());
+let timer;
 
-const methods = computed(() => props.booking.workspace?.payment_methods || []);
+onMounted(() => {
+    timer = setInterval(() => {
+        now.value = Date.now();
+    }, 1000);
+});
+onUnmounted(() => clearInterval(timer));
+
+const methods = computed(() => props.platformPaymentMethods || []);
 
 const manualForm = useForm({
-    method: methods.value[0] || 'bank_transfer',
+    platform_payment_method_id: methods.value[0]?.id || null,
+    transfer_reference: '',
     proof: null,
 });
 
 const fileName = ref('');
 
-const statusTone = computed(() => {
-    const map = {
-        pending: 'warning',
-        confirmed: 'success',
-        cancelled: 'danger',
-        completed: 'brand',
-        no_show: 'neutral',
-    };
-    return map[props.booking.status] || 'neutral';
-});
+const selectedMethod = computed(() =>
+    methods.value.find((m) => m.id === Number(manualForm.platform_payment_method_id)) || null,
+);
 
-const paymentTone = computed(() => {
-    const map = {
-        unpaid: 'warning',
-        pending: 'accent',
-        paid: 'success',
-        failed: 'danger',
-        refunded: 'neutral',
+const requiresReference = computed(() => Boolean(selectedMethod.value?.requires_reference));
+
+const countdown = computed(() => {
+    if (!props.booking.expires_at) return null;
+    const ms = new Date(props.booking.expires_at).getTime() - now.value;
+    if (ms <= 0) return { label: t('payment.expired'), urgent: true };
+    const total = Math.floor(ms / 1000);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return {
+        label: `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
+        urgent: total < 300,
     };
-    return map[props.booking.payment_status] || 'neutral';
 });
 
 const canPay = computed(
@@ -56,35 +68,32 @@ const canPay = computed(
 
 const waitingReview = computed(() => props.booking.payment_status === 'pending');
 
-const canCancel = computed(() =>
-    ['pending', 'confirmed'].includes(props.booking.status),
-);
-
-const isCash = computed(() => manualForm.method === 'cash');
-
 const latestRejected = computed(() => {
     const list = props.booking.payments || [];
     return list.find((p) => p.status === 'failed' && p.rejection_reason) || null;
 });
 
-const methodLabel = (method) => {
+function methodTypeLabel(type) {
     const map = {
+        jawwal_pay: 'payment.methodJawwal',
         bank_transfer: 'payment.methodBank',
-        wallet: 'payment.methodWallet',
+        other_wallet: 'payment.methodOtherWallet',
         cash: 'payment.methodCash',
+        wallet: 'payment.methodOtherWallet',
     };
-    return t(map[method] || method);
-};
+    return t(map[type] || type);
+}
 
-function formatDate(value) {
-    if (!value) return '—';
+async function copyText(key, value) {
+    if (!value) return;
     try {
-        return new Date(value).toLocaleString(locale.value === 'ar' ? 'ar' : 'en', {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-        });
+        await navigator.clipboard.writeText(value);
+        copiedKey.value = key;
+        setTimeout(() => {
+            copiedKey.value = '';
+        }, 1500);
     } catch {
-        return value;
+        /* ignore */
     }
 }
 
@@ -97,6 +106,7 @@ function onProofChange(e) {
 function submitManual() {
     manualForm.post(route('user.payments.manual.store', props.booking.id), {
         forceFormData: true,
+        onFinish: () => manualForm.reset('proof', 'transfer_reference'),
     });
 }
 
@@ -108,6 +118,10 @@ function confirmCancel() {
             showCancel.value = false;
         },
     });
+}
+
+function formatDate(value) {
+    return formatInDisplayTz(value, locale.value, tz.value);
 }
 </script>
 
@@ -123,195 +137,171 @@ function confirmCancel() {
                 <Link :href="route('user.bookings.index')">
                     <Button variant="secondary">{{ t('common.back') }}</Button>
                 </Link>
-                <Link
-                    v-if="booking.status === 'pending'"
-                    :href="route('user.bookings.edit', booking.id)"
-                >
-                    <Button variant="ghost">{{ t('bookings.edit') }}</Button>
-                </Link>
-                <Button
-                    v-if="canCancel"
-                    variant="danger"
-                    :disabled="cancelling"
-                    @click="showCancel = true"
-                >
-                    {{ t('bookings.cancel') }}
-                </Button>
             </template>
         </PageHeader>
 
         <div class="grid gap-4 lg:grid-cols-3">
-            <section class="wz-surface space-y-4 p-5 lg:col-span-2">
-                <div class="grid gap-4 sm:grid-cols-2">
+            <section class="space-y-4 lg:col-span-2">
+                <div class="wz-surface grid gap-4 p-5 sm:grid-cols-2">
                     <div>
                         <div class="text-sm text-wz-fg-muted">{{ t('bookings.workspace') }}</div>
-                        <div class="mt-1 font-medium text-wz-fg">{{ booking.workspace?.name }}</div>
-                        <div class="text-sm text-wz-fg-muted">{{ booking.workspace?.location }}</div>
-                    </div>
-                    <div>
-                        <div class="text-sm text-wz-fg-muted">{{ t('bookings.status') }}</div>
-                        <div class="mt-1">
-                            <Badge :tone="statusTone">
-                                {{ t(`status.${booking.status}`, booking.status) }}
-                            </Badge>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="text-sm text-wz-fg-muted">{{ t('bookings.paymentStatus') }}</div>
-                        <div class="mt-1">
-                            <Badge :tone="paymentTone">
-                                {{ t(`payment.${booking.payment_status}`, booking.payment_status) }}
-                            </Badge>
-                        </div>
+                        <div class="mt-1 font-medium">{{ booking.workspace?.name }}</div>
                     </div>
                     <div>
                         <div class="text-sm text-wz-fg-muted">{{ t('bookings.total') }}</div>
-                        <div class="mt-1 font-display text-xl font-semibold text-wz-fg">
+                        <div class="mt-1 font-display text-xl font-semibold">
                             $ {{ Number(booking.total_price ?? 0).toFixed(2) }}
                         </div>
                     </div>
                     <div>
                         <div class="text-sm text-wz-fg-muted">{{ t('bookings.start') }}</div>
-                        <div class="mt-1 font-medium text-wz-fg">{{ formatDate(booking.start_at) }}</div>
+                        <div class="mt-1 font-medium">{{ formatDate(booking.start_at) }}</div>
                     </div>
                     <div>
                         <div class="text-sm text-wz-fg-muted">{{ t('bookings.end') }}</div>
-                        <div class="mt-1 font-medium text-wz-fg">{{ formatDate(booking.end_at) }}</div>
-                    </div>
-                    <div>
-                        <div class="text-sm text-wz-fg-muted">{{ t('bookings.hours') }}</div>
-                        <div class="mt-1 font-medium text-wz-fg">{{ booking.hours }}</div>
-                    </div>
-                    <div>
-                        <div class="text-sm text-wz-fg-muted">{{ t('bookings.seats') }}</div>
-                        <div class="mt-1 font-medium text-wz-fg">{{ booking.seats ?? 1 }}</div>
+                        <div class="mt-1 font-medium">{{ formatDate(booking.end_at) }}</div>
                     </div>
                 </div>
 
                 <div
-                    v-if="(canPay || waitingReview) && booking.workspace?.payment_details_ready"
-                    class="rounded-xl border border-wz-border bg-wz-muted/50 p-4"
+                    v-if="countdown && booking.status === 'pending'"
+                    class="rounded-xl border px-4 py-3 text-sm"
+                    :class="countdown.urgent ? 'border-wz-danger/40 bg-red-50 text-wz-danger dark:bg-red-950/30' : 'border-wz-border bg-wz-muted text-wz-fg'"
                 >
-                    <h2 class="font-display text-base font-semibold text-wz-fg">
-                        {{ t('payment.instructionsTitle') }}
-                    </h2>
-                    <p class="mt-1 text-sm text-wz-fg-muted">{{ t('payment.instructionsHint') }}</p>
-                    <div class="mt-3 flex flex-wrap gap-2">
-                        <Badge
-                            v-for="m in methods"
-                            :key="m"
-                            tone="brand"
-                        >
-                            {{ methodLabel(m) }}
-                        </Badge>
-                    </div>
-                    <pre
-                        class="mt-3 whitespace-pre-wrap rounded-xl border border-wz-border bg-wz-elevated px-3 py-3 font-sans text-sm text-wz-fg"
-                    >{{ booking.workspace?.payment_instructions }}</pre>
+                    <span class="font-medium">{{ t('payment.expiresIn') }}:</span>
+                    <span class="ms-2 font-mono text-lg">{{ countdown.label }}</span>
                 </div>
+
+                <div v-if="(canPay || waitingReview) && methods.length" class="space-y-3">
+                    <h2 class="font-display text-lg font-semibold">{{ t('payment.payPlatformTitle') }}</h2>
+                    <p class="text-sm text-wz-fg-muted">{{ t('payment.payPlatformHint') }}</p>
+
+                    <article
+                        v-for="(m, index) in methods"
+                        :key="m.id"
+                        class="wz-surface space-y-3 p-4"
+                    >
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <h3 class="font-semibold text-wz-fg">
+                                {{ index + 1 }}. {{ m.label }}
+                                <span class="ms-2 text-xs font-normal text-wz-fg-muted">
+                                    ({{ methodTypeLabel(m.type) }})
+                                </span>
+                            </h3>
+                        </div>
+                        <ol class="list-decimal space-y-2 ps-5 text-sm text-wz-fg">
+                            <li v-if="m.account_holder">
+                                {{ t('payment.stepPayTo') }}:
+                                <strong>{{ m.account_holder }}</strong>
+                                <Button size="sm" variant="ghost" class="ms-2" @click="copyText(`h-${m.id}`, m.account_holder)">
+                                    {{ copiedKey === `h-${m.id}` ? t('admin.copied') : t('payment.copy') }}
+                                </Button>
+                            </li>
+                            <li v-if="m.account_identifier">
+                                {{ t('payment.stepAccount') }}:
+                                <code class="rounded bg-wz-muted px-1.5 py-0.5">{{ m.account_identifier }}</code>
+                                <Button size="sm" variant="ghost" class="ms-2" @click="copyText(`a-${m.id}`, m.account_identifier)">
+                                    {{ copiedKey === `a-${m.id}` ? t('admin.copied') : t('payment.copy') }}
+                                </Button>
+                            </li>
+                            <li v-if="m.qr_url">
+                                {{ t('payment.stepScanQr') }}
+                                <img :src="m.qr_url" alt="QR" class="mt-2 h-36 w-36 rounded-xl border border-wz-border object-contain bg-wz-elevated" />
+                            </li>
+                            <li v-if="m.note" class="text-wz-fg-muted">{{ m.note }}</li>
+                        </ol>
+                    </article>
+                </div>
+
                 <div
                     v-else-if="canPay || waitingReview"
                     class="rounded-xl border border-wz-warning/40 bg-wz-accent-soft p-4"
-                    role="status"
                 >
-                    <h2 class="font-display text-base font-semibold text-wz-fg">
-                        {{ t('payment.detailsPendingTitle') }}
-                    </h2>
-                    <p class="mt-1 text-sm text-wz-fg-muted">{{ t('payment.detailsPendingHint') }}</p>
+                    <h2 class="font-semibold">{{ t('payment.detailsPendingTitle') }}</h2>
+                    <p class="mt-1 text-sm text-wz-fg-muted">{{ t('payment.platformMethodsMissing') }}</p>
                 </div>
             </section>
 
-            <section class="wz-surface space-y-4 p-5">
-                <h2 class="font-display text-lg font-semibold text-wz-fg">
-                    {{ t('payment.title') }}
-                </h2>
-
-                <Badge :tone="paymentTone">
+            <section class="wz-surface h-fit space-y-4 p-5">
+                <h2 class="font-display text-lg font-semibold">{{ t('payment.title') }}</h2>
+                <Badge :tone="booking.payment_status === 'paid' ? 'success' : 'warning'">
                     {{ t(`payment.${booking.payment_status}`, booking.payment_status) }}
                 </Badge>
 
                 <div
                     v-if="latestRejected && canPay"
-                    class="rounded-xl border border-wz-danger/40 bg-red-50 px-3 py-2 text-sm text-wz-danger dark:bg-red-950/40 dark:text-wz-danger"
+                    class="rounded-xl border border-wz-danger/40 bg-red-50 px-3 py-2 text-sm text-wz-danger dark:bg-red-950/40"
                 >
                     <p class="font-medium">{{ t('payment.rejectedNotice') }}</p>
                     <p class="mt-1 text-wz-fg">{{ latestRejected.rejection_reason }}</p>
                 </div>
 
-                <p
-                    v-if="waitingReview"
-                    class="rounded-xl bg-wz-accent-soft px-3 py-2 text-sm text-wz-fg"
-                >
-                    {{ t('payment.waitingReview') }}
+                <p v-if="waitingReview" class="rounded-xl bg-wz-accent-soft px-3 py-2 text-sm">
+                    {{ t('payment.waitingAdminReview') }}
                 </p>
 
                 <p
-                    v-else-if="booking.payment_status === 'paid'"
-                    class="rounded-xl bg-wz-brand-soft px-3 py-2 text-sm text-wz-fg"
+                    v-else-if="canPay && !methods.length"
+                    class="rounded-xl border border-wz-warning/40 bg-wz-accent-soft px-3 py-2 text-sm text-wz-fg"
                 >
-                    {{ t('payment.paid') }}
+                    {{ t('payment.platformMethodsMissing') }}
                 </p>
 
                 <form
-                    v-else-if="canPay && booking.workspace?.payment_details_ready"
+                    v-else-if="canPay && methods.length"
                     class="space-y-3"
                     @submit.prevent="submitManual"
                 >
                     <div class="grid gap-2">
-                        <span class="text-sm font-medium text-wz-fg">{{ t('payment.method') }}</span>
+                        <span class="text-sm font-medium">{{ t('payment.methodUsed') }}</span>
                         <label
                             v-for="m in methods"
-                            :key="m"
-                            class="flex cursor-pointer items-center gap-2 rounded-xl border border-wz-border bg-wz-elevated px-3 py-2 text-sm text-wz-fg"
+                            :key="m.id"
+                            class="flex cursor-pointer items-center gap-2 rounded-xl border border-wz-border bg-wz-elevated px-3 py-2 text-sm"
                         >
                             <input
-                                v-model="manualForm.method"
+                                v-model="manualForm.platform_payment_method_id"
                                 type="radio"
-                                class="text-wz-brand disabled:opacity-55"
-                                :value="m"
+                                :value="m.id"
                                 :disabled="manualForm.processing"
                             />
-                            {{ methodLabel(m) }}
+                            {{ m.label }}
                         </label>
-                        <p v-if="manualForm.errors.method" class="text-xs text-wz-danger">
-                            {{ manualForm.errors.method }}
+                        <p v-if="manualForm.errors.platform_payment_method_id" class="text-xs text-wz-danger">
+                            {{ manualForm.errors.platform_payment_method_id }}
                         </p>
                     </div>
 
+                    <Input
+                        v-if="requiresReference"
+                        id="transfer_reference"
+                        v-model="manualForm.transfer_reference"
+                        :error="manualForm.errors.transfer_reference"
+                        :disabled="manualForm.processing"
+                    >
+                        <template #label>{{ t('payment.transferReference') }}</template>
+                    </Input>
+
                     <label class="grid gap-1.5">
-                        <span class="text-sm font-medium text-wz-fg">
+                        <span class="text-sm font-medium">
                             {{ t('payment.uploadProof') }}
-                            <span v-if="isCash" class="font-normal text-wz-fg-muted">
-                                ({{ t('payment.proofOptionalCash') }})
-                            </span>
+                            <span class="font-normal text-wz-fg-muted">({{ t('common.optional') }})</span>
                         </span>
                         <input
                             type="file"
                             accept=".jpg,.jpeg,.png,.webp,.pdf"
-                            class="wz-focus block w-full text-sm text-wz-fg file:me-3 file:rounded-lg file:border-0 file:bg-wz-brand-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-wz-brand disabled:cursor-not-allowed disabled:opacity-55"
+                            class="wz-focus block w-full text-sm file:me-3 file:rounded-lg file:border-0 file:bg-wz-brand-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-wz-brand"
                             :disabled="manualForm.processing"
                             @change="onProofChange"
                         />
-                        <span v-if="fileName" class="text-xs text-wz-fg-muted">{{ fileName }}</span>
-                        <span v-else class="text-xs text-wz-fg-muted">{{ t('payment.chooseFile') }}</span>
+                        <span class="text-xs text-wz-fg-muted">{{ fileName || t('payment.chooseFile') }}</span>
+                        <p v-if="manualForm.errors.proof" class="text-xs text-wz-danger">{{ manualForm.errors.proof }}</p>
                     </label>
-                    <p v-if="manualForm.errors.proof" class="text-xs text-wz-danger">
-                        {{ manualForm.errors.proof }}
-                    </p>
 
-                    <Button
-                        type="submit"
-                        variant="primary"
-                        block
-                        :disabled="manualForm.processing || (!isCash && !manualForm.proof)"
-                    >
-                        {{ isCash && !manualForm.proof ? t('payment.markCashPending') : t('payment.submitProof') }}
+                    <Button type="submit" variant="primary" block :disabled="manualForm.processing">
+                        {{ t('payment.submitProof') }}
                     </Button>
                 </form>
-
-                <p v-else class="text-sm text-wz-fg-muted">
-                    {{ t(`payment.${booking.payment_status}`, booking.payment_status) }}
-                </p>
             </section>
         </div>
 
@@ -320,7 +310,6 @@ function confirmCancel() {
             :title="t('bookings.cancelTitle')"
             :message="t('bookings.cancelMessage')"
             :confirm-label="t('bookings.confirmCancel')"
-            :cancel-label="t('common.cancel')"
             danger
             @confirm="confirmCancel"
             @cancel="showCancel = false"

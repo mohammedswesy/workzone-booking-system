@@ -2,25 +2,38 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build",
-        "dev": "vite"
+        "build": "vite build && node scripts/check-csp-bundle.mjs",
+        "dev": "vite",
+        "postinstall": "node scripts/copy-leaflet-assets.mjs",
+        "check:csp-bundle": "node scripts/check-csp-bundle.mjs",
+        "test:unit": "vitest run",
+        "test:browser": "playwright test",
+        "test:browser:ui": "playwright test --ui"
     },
     "devDependencies": {
         "@inertiajs/vue3": "^2.0.0",
+        "@intlify/unplugin-vue-i18n": "^11.2.5",
+        "@playwright/test": "^1.63.0",
         "@tailwindcss/forms": "^0.5.3",
         "@tailwindcss/vite": "^4.0.0",
         "@vitejs/plugin-vue": "^5.0.0",
+        "@vue/test-utils": "^2.5.1",
         "alpinejs": "^3.4.2",
         "autoprefixer": "^10.4.12",
         "axios": "^1.8.2",
         "concurrently": "^9.0.1",
+        "jsdom": "^29.1.1",
         "laravel-vite-plugin": "^1.2.0",
         "postcss": "^8.4.31",
         "tailwindcss": "^3.2.1",
         "vite": "^6.2.4",
+        "vitest": "^3.2.7",
         "vue": "^3.4.0"
     },
     "dependencies": {
-        "vue-i18n": "^9.14.5"
+        "@fontsource/ibm-plex-sans-arabic": "^5.3.0",
+        "@fontsource/plus-jakarta-sans": "^5.3.0",
+        "leaflet": "^1.9.4",
+        "vue-i18n": "^11.4.13"
     }
 }

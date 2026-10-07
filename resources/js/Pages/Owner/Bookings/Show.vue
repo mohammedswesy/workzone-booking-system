@@ -15,8 +15,6 @@ const props = defineProps({
 const { t, locale } = useI18n();
 const showCancel = ref(false);
 const busy = ref(false);
-const rejectReason = ref('');
-const showReject = ref(false);
 
 function statusTone(status) {
     const map = {
@@ -52,15 +50,6 @@ function formatDate(value) {
     }
 }
 
-const latestManual = computed(() => {
-    const list = props.booking.payments || [];
-    return (
-        list.find((p) => p.provider === 'manual' && p.status === 'pending') ||
-        list.find((p) => p.provider === 'manual') ||
-        null
-    );
-});
-
 function updateStatus(status) {
     if (status === 'cancelled') {
         showCancel.value = true;
@@ -94,37 +83,9 @@ function confirmCancel() {
     );
 }
 
-function confirmProof() {
-    if (!latestManual.value) return;
-    busy.value = true;
-    router.post(
-        route('payments.manual.confirm', latestManual.value.id),
-        {},
-        {
-            preserveScroll: true,
-            onFinish: () => {
-                busy.value = false;
-            },
-        },
-    );
-}
-
-function rejectProof() {
-    if (!latestManual.value || !rejectReason.value.trim()) return;
-    busy.value = true;
-    router.post(
-        route('payments.manual.reject', latestManual.value.id),
-        { reason: rejectReason.value.trim() },
-        {
-            preserveScroll: true,
-            onFinish: () => {
-                busy.value = false;
-                showReject.value = false;
-                rejectReason.value = '';
-            },
-        },
-    );
-}
+const canConfirm = computed(
+    () => props.booking.status === 'pending' && props.booking.payment_status === 'paid',
+);
 </script>
 
 <template>
@@ -196,13 +157,19 @@ function rejectProof() {
 
                 <div class="flex flex-wrap gap-2 border-t border-wz-border pt-4">
                     <Button
-                        v-if="booking.status === 'pending'"
+                        v-if="canConfirm"
                         variant="primary"
                         :disabled="busy"
                         @click="updateStatus('confirmed')"
                     >
                         {{ t('owner.confirmBooking') }}
                     </Button>
+                    <p
+                        v-else-if="booking.status === 'pending' && booking.payment_status !== 'paid'"
+                        class="w-full text-sm text-wz-fg-muted"
+                    >
+                        {{ t('owner.confirmRequiresPaid') }}
+                    </p>
                     <Button
                         v-if="booking.status === 'confirmed'"
                         variant="secondary"
@@ -224,75 +191,12 @@ function rejectProof() {
 
             <section class="wz-surface space-y-3 p-5">
                 <h2 class="font-display text-lg font-semibold text-wz-fg">
-                    {{ t('payment.reviewProof') }}
+                    {{ t('payment.platformStatus') }}
                 </h2>
-
-                <template v-if="latestManual">
-                    <div class="text-sm text-wz-fg-muted">
-                        {{ t('payment.provider') }}:
-                        <span class="text-wz-fg">{{ t('payment.manual') }}</span>
-                    </div>
-                    <Badge :tone="paymentTone(latestManual.status)">
-                        {{ t(`payment.${latestManual.status}`, latestManual.status) }}
-                    </Badge>
-
-                    <a
-                        v-if="latestManual.proof_url"
-                        :href="latestManual.proof_url"
-                        target="_blank"
-                        rel="noopener"
-                        class="wz-focus block overflow-hidden rounded-xl border border-wz-border"
-                    >
-                        <img
-                            v-if="!String(latestManual.proof_path || '').endsWith('.pdf')"
-                            :src="latestManual.proof_url"
-                            :alt="t('payment.reviewProof')"
-                            class="max-h-56 w-full object-contain bg-wz-muted"
-                        />
-                        <span v-else class="block px-3 py-6 text-center text-sm text-wz-brand">
-                            PDF
-                        </span>
-                    </a>
-                    <p v-else class="text-sm text-wz-fg-muted">{{ t('payment.noProof') }}</p>
-
-                    <div v-if="latestManual.status === 'pending'" class="space-y-2">
-                        <Button variant="primary" block :disabled="busy" @click="confirmProof">
-                            {{ t('payment.confirmProof') }}
-                        </Button>
-                        <Button
-                            variant="danger"
-                            block
-                            :disabled="busy"
-                            @click="showReject = !showReject"
-                        >
-                            {{ t('payment.rejectProof') }}
-                        </Button>
-                        <div v-if="showReject" class="space-y-2">
-                            <label class="grid gap-1.5">
-                                <span class="text-sm font-medium text-wz-fg">
-                                    {{ t('payment.rejectReason') }}
-                                </span>
-                                <textarea
-                                    v-model="rejectReason"
-                                    rows="3"
-                                    maxlength="500"
-                                    class="wz-focus w-full rounded-xl border border-wz-border bg-wz-elevated px-3 py-2.5 text-sm text-wz-fg disabled:opacity-55"
-                                    :placeholder="t('payment.rejectReasonPlaceholder')"
-                                    :disabled="busy"
-                                />
-                            </label>
-                            <Button
-                                variant="danger"
-                                block
-                                :disabled="busy || !rejectReason.trim()"
-                                @click="rejectProof"
-                            >
-                                {{ t('payment.rejectProof') }}
-                            </Button>
-                        </div>
-                    </div>
-                </template>
-                <p v-else class="text-sm text-wz-fg-muted">{{ t('payment.noProof') }}</p>
+                <Badge :tone="paymentTone(booking.payment_status)">
+                    {{ t(`payment.${booking.payment_status}`, booking.payment_status) }}
+                </Badge>
+                <p class="text-sm text-wz-fg-muted">{{ t('payment.ownerCannotSeeProof') }}</p>
             </section>
         </div>
 

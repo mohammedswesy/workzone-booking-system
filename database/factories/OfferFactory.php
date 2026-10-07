@@ -23,6 +23,7 @@ class OfferFactory extends Factory
         return [
             'owner_id' => $owner->id,
             'workspace_id' => $workspace->id,
+            'venue_id' => null,
             'title' => $this->faker->randomElement(['Launch week', 'Student deal', 'Afternoon focus']),
             'discount_percent' => $this->faker->numberBetween(5, 25),
             'starts_at' => $starts,

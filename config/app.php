@@ -69,6 +69,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Display Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Application storage and calculations use UTC. UI and CSV exports render
+    | timestamps in this local timezone (Asia/Gaza for WorkZone).
+    |
+    */
+
+    'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'Asia/Gaza'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin session idle timeout (minutes)
+    |--------------------------------------------------------------------------
+    */
+
+    'admin_idle_minutes' => (int) env('ADMIN_IDLE_MINUTES', 30),
+
+    'admin_2fa_enforced' => (bool) env('ADMIN_2FA_ENFORCED', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |
